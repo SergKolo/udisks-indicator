@@ -37,9 +37,10 @@ from gi.repository import AppIndicator3 as appindicator
 from gi.repository import Gtk as gtk
 from os import statvfs
 #from collections import OrderedDict
-#import subprocess
+import subprocess
 import dbus
-#import os
+import json
+import os
 
 class UdisksIndicator(object):
 
@@ -50,6 +51,11 @@ class UdisksIndicator(object):
             )
 
         self.app.set_status(appindicator.IndicatorStatus.ACTIVE)
+
+        filename = 'partition_aliases.json'
+        user_home = os.path.expanduser('~')
+        self.config_file = os.path.join(user_home,filename)
+
         self.make_menu()
         self.update()
 
@@ -73,6 +79,11 @@ class UdisksIndicator(object):
             self.menu_item = gtk.MenuItem(i)
             self.app_menu.append(self.menu_item)
             self.menu_item.show()
+
+        self.make_part_alias = gtk.MenuItem('Make Alias')
+        self.make_part_alias.connect('activate',self.make_alias)
+        self.app_menu.append(self.make_part_alias)
+        self.make_part_alias.show()
  
         self.quit_app = gtk.MenuItem('Quit')
         self.quit_app.connect('activate', self.quit)
@@ -99,6 +110,7 @@ class UdisksIndicator(object):
         for item in objects:
             try:
                 if 'block_devices'  in str(item):
+                       
         
                        drive = self.get_dbus_property('system',
                                         'org.freedesktop.UDisks2',
@@ -113,8 +125,11 @@ class UdisksIndicator(object):
     
                        drive = str(drive).split('/')[-1]
                        usage = self.get_mountpoint_usage(mountpoint)
+
+                       part = str(item.split('/')[-1])
+
                        partitions.append((
-                                  'Partition:\t'+str(item.split('/')[-1]),
+                                  'Partition:\t'+part,
                                   '\nDrive:\t' + drive,
                                   '\nMountPoint:\t' + mountpoint,
                                   '\n%Usage:\t'+ usage))
@@ -166,6 +181,79 @@ class UdisksIndicator(object):
         props = props_iface.Get(iface,prop)
         return props
 
+    def make_alias(self,*args):
+
+        objects = self.get_dbus('system', 
+                           'org.freedesktop.UDisks2', 
+                           '/org/freedesktop/UDisks2', 
+                           'org.freedesktop.DBus.ObjectManager',
+                           'GetManagedObjects',
+                           None)
+        
+        
+        partitions = []
+        for item in objects:
+            try:
+                if 'block_devices'  in str(item):
+        
+                    drive = self.get_dbus_property('system',
+                                     'org.freedesktop.UDisks2',
+                                     item,
+                                     'org.freedesktop.UDisks2.Block',
+                                     'Drive')
+                    if drive == '/': continue
+                    partitions.append(str(item).split('/')[-1])
+            except:
+                pass
+
+        combo_values = '|'.join(partitions)
+        #print(combo_values)
+        command=[ 'zenity','--forms','--title','Make Alias',
+                  '--add-combo','Partition','--combo-values',
+                  combo_values,'--add-entry','Alias'    ]        
+        alias = self.run_cmd(command).decode().strip().split('|')
+        existing_values = None
+
+        if os.path.isfile(self.config_file):
+            with open(self.config_file) as conf_file:
+                try:
+                    existing_values = json.load(conf_file)
+                except ValueError:
+                    pass
+                    
+
+        with open(self.config_file,'w') as conf_file:
+             if existing_values:
+                 existing_values[alias[0]] = alias[1]
+             else:
+                 existing_values = {alias[0]:alias[1]}
+
+             print(existing_values)
+             json.dump(existing_values,conf_file,indent=4,sort_keys=True)
+        
+
+    def find_alias(self,part):
+        if os.path.isfile(self.config_file):
+            with open(self.config_file) as conf_file:
+                try:
+                    aliases = json.load(conf_file)
+                except ValueError:
+                    pass
+                else:
+                    if part in aliases:
+                       return aliases[part]
+
+    def run_cmd(self, cmdlist):
+        """ Reusable function for running external commands """
+        new_env = dict(os.environ)
+        new_env['LC_ALL'] = 'C'
+        try:
+            stdout = subprocess.check_output(cmdlist, env=new_env)
+        except subprocess.CalledProcessError:
+            pass
+        else:
+            if stdout:
+                return stdout
 
     def run(self):
         """ Launches the indicator """
