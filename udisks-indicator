@@ -1,0 +1,187 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+#
+# Author: Serg Kolo , contact: 1047481448@qq.com
+# Date: September 27 , 2016
+# Purpose: appindicator for easy switching between monitor resolutions
+# Tested on: Ubuntu 16.04 LTS
+#
+#
+# Licensed under The MIT License (MIT).
+# See included LICENSE file or the notice below.
+#
+# Copyright © 2016 Sergiy Kolodyazhnyy
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+import gi
+gi.require_version('AppIndicator3', '0.1')
+from gi.repository import GLib as glib
+from gi.repository import AppIndicator3 as appindicator
+from gi.repository import Gtk as gtk
+from os import statvfs
+#from collections import OrderedDict
+#import subprocess
+import dbus
+#import os
+
+class UdisksIndicator(object):
+
+    def __init__(self):
+        self.app = appindicator.Indicator.new(
+            'udisks-indicator', "drive-harddisk-symbolic.svg",
+            appindicator.IndicatorCategory.HARDWARE
+            )
+
+        self.app.set_status(appindicator.IndicatorStatus.ACTIVE)
+        self.make_menu()
+        self.update()
+
+    def update(self):
+        timeout = 5
+        glib.timeout_add_seconds(timeout,self.callback)
+
+    def callback(self):
+        self.make_menu()
+        self.update()        
+
+    def make_menu(self,*args):
+        """ generates entries in the indicator"""
+        if hasattr(self, 'app_menu'):
+            for item in self.app_menu.get_children():
+                self.app_menu.remove(item)
+
+        self.app_menu = gtk.Menu()
+
+        for i in self.get_partitions():
+            self.menu_item = gtk.MenuItem(i)
+            self.app_menu.append(self.menu_item)
+            self.menu_item.show()
+ 
+        self.quit_app = gtk.MenuItem('Quit')
+        self.quit_app.connect('activate', self.quit)
+        self.app_menu.append(self.quit_app)
+        self.quit_app.show()
+
+        self.app.set_menu(self.app_menu)
+
+    def get_mountpoint_usage(self,mountpoint):
+        fs = statvfs(mountpoint)
+        usage = 100*(float(fs.f_blocks)-float(fs.f_bfree))/float(fs.f_blocks)
+        return str("{0:.2f}".format(usage))
+
+    def get_partitions(self):
+        objects = self.get_dbus('system', 
+                           'org.freedesktop.UDisks2', 
+                           '/org/freedesktop/UDisks2', 
+                           'org.freedesktop.DBus.ObjectManager',
+                           'GetManagedObjects',
+                           None)
+        
+        
+        partitions = []
+        for item in objects:
+            try:
+                if 'block_devices'  in str(item):
+        
+                       drive = self.get_dbus_property('system',
+                                        'org.freedesktop.UDisks2',
+                                        item,
+                                        'org.freedesktop.UDisks2.Block',
+                                        'Drive')
+                       if drive == '/': continue
+                      
+                       mountpoint = self.get_mountpoint(item)
+                       if not mountpoint: continue
+                       mountpoint = mountpoint.replace('\x00','')
+    
+                       drive = str(drive).split('/')[-1]
+                       usage = self.get_mountpoint_usage(mountpoint)
+                       partitions.append((
+                                  'Partition:\t'+str(item.split('/')[-1]),
+                                  '\nDrive:\t' + drive,
+                                  '\nMountPoint:\t' + mountpoint,
+                                  '\n%Usage:\t'+ usage))
+            except Exception as e:
+                #print(e)
+                pass
+        
+        return [' '.join(i) for i in partitions]        
+
+    def get_mountpoint(self,dev_path):
+        try:
+            data = self.get_dbus_property(
+                             'system',
+                             'org.freedesktop.UDisks2',
+                             dev_path,
+                             'org.freedesktop.UDisks2.Filesystem',
+                             'MountPoints')[0]
+    
+        except Exception as e:
+            #print(e)
+            return None
+        else:
+            if len(data) > 0:
+                return ''.join([ chr(byte) for byte in data])
+
+
+    def get_dbus(self,bus_type,obj,path,interface,method,arg):
+
+        if bus_type == "session":
+            bus = dbus.SessionBus() 
+        if bus_type == "system":
+            bus = dbus.SystemBus()
+        proxy = bus.get_object(obj,path)
+        method = proxy.get_dbus_method(method,interface)
+        if arg:
+            return method(arg)
+        else:
+            return method()
+    
+    def get_dbus_property(self,bus_type,obj,path,iface,prop):
+
+        if bus_type == "session":
+           bus = dbus.SessionBus()
+        if bus_type == "system":
+           bus = dbus.SystemBus()
+        proxy = bus.get_object(obj,path)
+        aux = 'org.freedesktop.DBus.Properties'
+        props_iface = dbus.Interface(proxy,aux)
+        props = props_iface.Get(iface,prop)
+        return props
+
+
+    def run(self):
+        """ Launches the indicator """
+        try:
+            gtk.main()
+        except KeyboardInterrupt:
+            pass
+
+    def quit(self, data=None):
+        """ closes indicator """
+        gtk.main_quit()
+
+def main():
+    """ defines program entry point """
+    indicator = UdisksIndicator()
+    indicator.run()
+
+if __name__ == '__main__':
+    main()
