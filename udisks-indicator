@@ -70,6 +70,7 @@ class UdisksIndicator(object):
         self.update()        
 
     def make_menu(self,*args):
+        self.get_unmounted_partitions()
         """ generates entries in the indicator"""
         if hasattr(self, 'app_menu'):
             for item in self.app_menu.get_children():
@@ -100,14 +101,42 @@ class UdisksIndicator(object):
             self.app_menu.append(self.separator)
             self.separator.show()
 
+        self.unmounted = gtk.MenuItem('Unmounted Partitions')
+        self.unmounted_submenu = gtk.Menu()
+        self.unmounted.set_submenu(self.unmounted_submenu)
+
+        for i in self.get_unmounted_partitions():
+
+            part = "Partition: " + i[0]
+            alias = self.find_alias(i[0])
+            drive = "\nDrive: " + i[1]
+            label = part + drive
+            if alias: 
+               alias = "\nAlias: " + alias
+               label = part + alias + drive
+        
+            self.menu_item = gtk.MenuItem(label)
+            self.menu_item.connect('activate',self.mount_partition,i[0])
+            self.unmounted_submenu.append(self.menu_item)
+            self.menu_item.show()
+
+            self.separator = gtk.SeparatorMenuItem()
+            self.unmounted_submenu.append(self.separator)
+            self.separator.show()
+
+        self.app_menu.append(self.unmounted)
+        self.unmounted.show()
+
+        
+        self.separator = gtk.SeparatorMenuItem()
+        self.app_menu.append(self.separator)
+        self.separator.show()
 
         self.make_part_alias = gtk.MenuItem('Make Alias')
         self.make_part_alias.connect('activate',self.make_alias)
         self.app_menu.append(self.make_part_alias)
         self.make_part_alias.show()
  
-        # TODO: add entry for automatic startup 
-
         user_home = os.path.expanduser('~')
         desktop_file = 'udisks-indicator.desktop'
         full_path = os.path.join(user_home,desktop_file)
@@ -131,6 +160,9 @@ class UdisksIndicator(object):
         self.quit_app.show()
 
         self.app.set_menu(self.app_menu)
+
+    def mount_partition(self,*args):
+        return self.run_cmd(['udisksctl','mount','-b','/dev/' + args[-1]])
 
     def get_mountpoint_usage(self,mountpoint):
         fs = statvfs(mountpoint)
@@ -193,8 +225,41 @@ class UdisksIndicator(object):
                 return ''.join([ chr(byte) for byte in data])
 
 
-    def get_dbus(self,bus_type,obj,path,interface,method,arg):
+    def get_unmounted_partitions(self):
+        objects = self.get_dbus('system', 
+                           'org.freedesktop.UDisks2', 
+                           '/org/freedesktop/UDisks2', 
+                           'org.freedesktop.DBus.ObjectManager',
+                           'GetManagedObjects',
+                           None)
+        
+        
+        partitions = []
+        for item in objects:
+            try:
+                if 'block_devices'  in str(item):
+                       drive = self.get_dbus_property('system',
+                                        'org.freedesktop.UDisks2',
+                                        item,
+                                        'org.freedesktop.UDisks2.Block',
+                                        'Drive')
+                       if drive == '/': continue
+                      
+                       mountpoint = self.get_mountpoint(item)
+                       if  mountpoint: continue
 
+                       drive = str(drive).split('/')[-1]
+                       part = str(item.split('/')[-1])
+                       if not part[-1].isdigit(): continue
+                       partitions.append((part,drive))                       
+                       #print(partitions)
+
+            except Exception as e:
+                print(e)
+                pass
+        return partitions
+
+    def get_dbus(self,bus_type,obj,path,interface,method,arg):
         if bus_type == "session":
             bus = dbus.SessionBus() 
         if bus_type == "system":
