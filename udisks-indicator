@@ -4,7 +4,7 @@
 #
 # Author: Serg Kolo , contact: 1047481448@qq.com
 # Date: September 27 , 2016
-# Purpose: appindicator for easy switching between monitor resolutions
+# Purpose: appindicator for displaying mounted filesystem usage
 # Tested on: Ubuntu 16.04 LTS
 #
 #
@@ -95,10 +95,20 @@ class UdisksIndicator(object):
             self.app_menu.append(self.menu_item)
             self.menu_item.show()
 
+            self.separator = gtk.SeparatorMenuItem()
+            self.app_menu.append(self.separator)
+            self.separator.show()
+
+
         self.make_part_alias = gtk.MenuItem('Make Alias')
         self.make_part_alias.connect('activate',self.make_alias)
         self.app_menu.append(self.make_part_alias)
         self.make_part_alias.show()
+
+        self.open_gnome_disks = gtk.MenuItem('Open Disks Utility')
+        self.open_gnome_disks.connect('activate',self.open_disks_utility)
+        self.app_menu.append(self.open_gnome_disks)
+        self.open_gnome_disks.show()
  
         self.quit_app = gtk.MenuItem('Quit')
         self.quit_app.connect('activate', self.quit)
@@ -143,18 +153,13 @@ class UdisksIndicator(object):
 
                        part = str(item.split('/')[-1])
                        partitions.append((part,drive,mountpoint,usage))                       
-#                       partitions.append((
-#                                  'Partition:\t'+part,
-#                                  '\nDrive:\t' + drive,
-#                                  '\nMountPoint:\t' + mountpoint,
-#                                  '\n%Usage:\t'+ usage))
+
             except Exception as e:
                 #print(e)
                 pass
 
         # returning list of tuples
         return partitions
-        #return [' '.join(i) for i in partitions]        
 
     def get_mountpoint(self,dev_path):
         try:
@@ -200,30 +205,7 @@ class UdisksIndicator(object):
 
     def make_alias(self,*args):
         partitions = [ i[0] for i in self.get_partitions() ]
-#        objects = self.get_dbus('system', 
-#                           'org.freedesktop.UDisks2', 
-#                           '/org/freedesktop/UDisks2', 
-#                           'org.freedesktop.DBus.ObjectManager',
-#                           'GetManagedObjects',
-#                           None)
-#        
-#        
-#        partitions = []
-#        for item in objects:
-#            try:
-#                if 'block_devices'  in str(item):
-#        
-#                    drive = self.get_dbus_property('system',
-#                                     'org.freedesktop.UDisks2',
-#                                     item,
-#                                     'org.freedesktop.UDisks2.Block',
-#                                     'Drive')
-#                    if drive == '/': continue
-#                    if not str(item)[-1].isdigit(): continue
-#                    partitions.append(str(item).split('/')[-1])
-#            except:
-#                pass
-#
+
         combo_values = '|'.join(partitions)
         #print(combo_values)
         command=[ 'zenity','--forms','--title','Make Alias',
@@ -265,6 +247,9 @@ class UdisksIndicator(object):
 
     def open_mountpoint(self,*args):
         pid = subprocess.Popen(['xdg-open',args[-1]]).pid
+
+    def open_disks_utility(self,*args):
+        pid = subprocess.Popen(['gnome-disks']).pid
 
     def run_cmd(self, cmdlist):
         """ Reusable function for running external commands """
