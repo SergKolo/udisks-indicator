@@ -4,7 +4,9 @@ Indicator for Ubuntu with Unity desktop to show disk usage
 
 ### Overview
 
-This indicator for Ubuntu with Unity allows easily view information about your mounted partitions. It organizes entries in order:
+This indicator for Ubuntu with Unity allows easily view information about your mounted partitions. It strives to be visually similar to iStat Menu 3 menulet from OS X.
+
+Entries are organized in order:
 
 - Partition 
 - Alias ( if set by user )
