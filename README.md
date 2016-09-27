@@ -1,6 +1,6 @@
 # udisks-indicator
 Indicator for Ubuntu with Unity desktop to show disk usage
-[![Sample Screenshot](http://i.imgur.com/uSn5j0G.png)](http://i.imgur.com/uSn5j0G.png)
+[![Sample Screenshot](http://i.imgur.com/ugcvF6r.png)](http://i.imgur.com/ugcvF6r.png)
 
 ### Overview
 
@@ -16,8 +16,8 @@ Entries are organized in order:
 
 Clicking on each partition entry will open the partition's mountpoint in the default file manager
 
-The indicator uses default icons provided with the system, so the icon should be changing as you change the icon theme using Unity Tweak Tool or other methods
+The "Unmounted Partitions" menu lists all the partitions not currently mounted by the system. Clicking on any entry in that submenu will mount that partition automatically, typically to `/media/username/drive-id` folder
 
-Listing of the unmounted partition is planned to be added in future
+The indicator uses default icons provided with the system, so the icon should be changing as you change the icon theme using Unity Tweak Tool or other methods
 
 
