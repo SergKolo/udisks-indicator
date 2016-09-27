@@ -38,6 +38,7 @@ from gi.repository import Gtk as gtk
 from os import statvfs
 #from collections import OrderedDict
 import subprocess
+import shutil
 import dbus
 import json
 import os
@@ -104,7 +105,21 @@ class UdisksIndicator(object):
         self.make_part_alias.connect('activate',self.make_alias)
         self.app_menu.append(self.make_part_alias)
         self.make_part_alias.show()
+ 
+        # TODO: add entry for automatic startup 
 
+        user_home = os.path.expanduser('~')
+        desktop_file = 'udisks-indicator.desktop'
+        full_path = os.path.join(user_home,desktop_file)
+
+        label = 'Start Automatically' 
+        if os.path.exists(full_path):
+           label = label + ' \u2714'
+        self.autostart = gtk.MenuItem(label)
+        self.autostart.connect('activate',self.toggle_auto_startup)
+        self.app_menu.append(self.autostart)
+        self.autostart.show()
+        
         self.open_gnome_disks = gtk.MenuItem('Open Disks Utility')
         self.open_gnome_disks.connect('activate',self.open_disks_utility)
         self.app_menu.append(self.open_gnome_disks)
@@ -244,6 +259,19 @@ class UdisksIndicator(object):
                        return aliases[part]
                     else:
                        return None
+
+    def toggle_auto_startup(self,*args):
+        user_home = os.path.expanduser('~')
+        desktop_file = 'udisks-indicator.desktop'
+        full_path = os.path.join(user_home,desktop_file)
+
+        if os.path.exists(full_path):
+           os.unlink(full_path)
+        else:
+           original = '/usr/share/applications/udisks-indicator.desktop'
+           if os.path.exists(original):
+               shutil.copyfile(original,full_path)
+
 
     def open_mountpoint(self,*args):
         pid = subprocess.Popen(['xdg-open',args[-1]]).pid
