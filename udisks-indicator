@@ -59,6 +59,7 @@ class UdisksIndicator(object):
         self.make_menu()
         self.update()
 
+
     def update(self):
         timeout = 5
         glib.timeout_add_seconds(timeout,self.callback)
@@ -90,6 +91,7 @@ class UdisksIndicator(object):
                 item = part + alias + drive + mount + usage
 
             self.menu_item = gtk.MenuItem(item)
+            self.menu_item.connect('activate',self.open_mountpoint,i[2])
             self.app_menu.append(self.menu_item)
             self.menu_item.show()
 
@@ -261,8 +263,8 @@ class UdisksIndicator(object):
                     else:
                        return None
 
-    def open_mountpoint(self,mountpoint):
-        pass
+    def open_mountpoint(self,*args):
+        pid = subprocess.Popen(['xdg-open',args[-1]]).pid
 
     def run_cmd(self, cmdlist):
         """ Reusable function for running external commands """
