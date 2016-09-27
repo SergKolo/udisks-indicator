@@ -52,7 +52,7 @@ class UdisksIndicator(object):
 
         self.app.set_status(appindicator.IndicatorStatus.ACTIVE)
 
-        filename = 'partition_aliases.json'
+        filename = '.partition_aliases.json'
         user_home = os.path.expanduser('~')
         self.config_file = os.path.join(user_home,filename)
 
@@ -75,8 +75,21 @@ class UdisksIndicator(object):
 
         self.app_menu = gtk.Menu()
 
-        for i in self.get_partitions():
-            self.menu_item = gtk.MenuItem(i)
+        partitions = self.get_partitions()
+        for i in partitions:
+
+            part = "Partition: " + i[0]
+            alias = self.find_alias(i[0])
+            drive = "\nDrive: " + i[1]
+            mount = "\nMountPoint: " + i[2]
+            usage = "\n%Usage: " + i[3]
+             
+            item = part + drive + mount + usage
+            if alias:
+                alias = "\nAlias: " + alias
+                item = part + alias + drive + mount + usage
+
+            self.menu_item = gtk.MenuItem(item)
             self.app_menu.append(self.menu_item)
             self.menu_item.show()
 
@@ -127,17 +140,19 @@ class UdisksIndicator(object):
                        usage = self.get_mountpoint_usage(mountpoint)
 
                        part = str(item.split('/')[-1])
-
-                       partitions.append((
-                                  'Partition:\t'+part,
-                                  '\nDrive:\t' + drive,
-                                  '\nMountPoint:\t' + mountpoint,
-                                  '\n%Usage:\t'+ usage))
+                       partitions.append((part,drive,mountpoint,usage))                       
+#                       partitions.append((
+#                                  'Partition:\t'+part,
+#                                  '\nDrive:\t' + drive,
+#                                  '\nMountPoint:\t' + mountpoint,
+#                                  '\n%Usage:\t'+ usage))
             except Exception as e:
                 #print(e)
                 pass
-        
-        return [' '.join(i) for i in partitions]        
+
+        # returning list of tuples
+        return partitions
+        #return [' '.join(i) for i in partitions]        
 
     def get_mountpoint(self,dev_path):
         try:
@@ -182,30 +197,31 @@ class UdisksIndicator(object):
         return props
 
     def make_alias(self,*args):
-
-        objects = self.get_dbus('system', 
-                           'org.freedesktop.UDisks2', 
-                           '/org/freedesktop/UDisks2', 
-                           'org.freedesktop.DBus.ObjectManager',
-                           'GetManagedObjects',
-                           None)
-        
-        
-        partitions = []
-        for item in objects:
-            try:
-                if 'block_devices'  in str(item):
-        
-                    drive = self.get_dbus_property('system',
-                                     'org.freedesktop.UDisks2',
-                                     item,
-                                     'org.freedesktop.UDisks2.Block',
-                                     'Drive')
-                    if drive == '/': continue
-                    partitions.append(str(item).split('/')[-1])
-            except:
-                pass
-
+        partitions = [ i[0] for i in self.get_partitions() ]
+#        objects = self.get_dbus('system', 
+#                           'org.freedesktop.UDisks2', 
+#                           '/org/freedesktop/UDisks2', 
+#                           'org.freedesktop.DBus.ObjectManager',
+#                           'GetManagedObjects',
+#                           None)
+#        
+#        
+#        partitions = []
+#        for item in objects:
+#            try:
+#                if 'block_devices'  in str(item):
+#        
+#                    drive = self.get_dbus_property('system',
+#                                     'org.freedesktop.UDisks2',
+#                                     item,
+#                                     'org.freedesktop.UDisks2.Block',
+#                                     'Drive')
+#                    if drive == '/': continue
+#                    if not str(item)[-1].isdigit(): continue
+#                    partitions.append(str(item).split('/')[-1])
+#            except:
+#                pass
+#
         combo_values = '|'.join(partitions)
         #print(combo_values)
         command=[ 'zenity','--forms','--title','Make Alias',
@@ -242,6 +258,11 @@ class UdisksIndicator(object):
                 else:
                     if part in aliases:
                        return aliases[part]
+                    else:
+                       return None
+
+    def open_mountpoint(self,mountpoint):
+        pass
 
     def run_cmd(self, cmdlist):
         """ Reusable function for running external commands """
