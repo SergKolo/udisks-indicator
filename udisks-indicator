@@ -56,17 +56,18 @@ class UdisksIndicator(object):
         filename = '.partition_aliases.json'
         user_home = os.path.expanduser('~')
         self.config_file = os.path.join(user_home,filename)
-
+        self.cache = self.get_partitions()
         self.make_menu()
         self.update()
 
 
     def update(self):
-        timeout = 10
+        timeout = 5
         glib.timeout_add_seconds(timeout,self.callback)
 
     def callback(self):
-        self.make_menu()
+        if self.cache != self.get_partitions():
+            self.make_menu()
         self.update()        
 
     def make_menu(self,*args):
