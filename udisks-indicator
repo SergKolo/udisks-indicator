@@ -51,6 +51,9 @@ class UdisksIndicator(object):
             appindicator.IndicatorCategory.HARDWARE
             )
 
+        if not self.app.get_icon():
+           self.app.set_icon("drive-harddisk-symbolic")
+
         self.app.set_status(appindicator.IndicatorStatus.ACTIVE)
 
         filename = '.partition_aliases.json'
