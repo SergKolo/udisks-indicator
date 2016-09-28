@@ -257,6 +257,8 @@ class UdisksIndicator(object):
             except Exception as e:
                 print(e)
                 pass
+
+        partitions.sort()
         return partitions
 
     def get_dbus(self,bus_type,obj,path,interface,method,arg):
