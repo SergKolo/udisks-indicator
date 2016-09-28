@@ -138,7 +138,7 @@ class UdisksIndicator(object):
         self.make_part_alias.show()
  
         user_home = os.path.expanduser('~')
-        desktop_file = 'udisks-indicator.desktop'
+        desktop_file = '.config/autostart/udisks-indicator.desktop'
         full_path = os.path.join(user_home,desktop_file)
 
         label = 'Start Automatically' 
@@ -327,7 +327,7 @@ class UdisksIndicator(object):
 
     def toggle_auto_startup(self,*args):
         user_home = os.path.expanduser('~')
-        desktop_file = 'udisks-indicator.desktop'
+        desktop_file = '.config/autostart/udisks-indicator.desktop'
         full_path = os.path.join(user_home,desktop_file)
 
         if os.path.exists(full_path):
