@@ -206,6 +206,7 @@ class UdisksIndicator(object):
                 pass
 
         # returning list of tuples
+        partitions.sort()
         return partitions
 
     def get_mountpoint(self,dev_path):
