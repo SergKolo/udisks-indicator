@@ -70,7 +70,6 @@ class UdisksIndicator(object):
         self.update()        
 
     def make_menu(self,*args):
-        self.get_unmounted_partitions()
         """ generates entries in the indicator"""
         if hasattr(self, 'app_menu'):
             for item in self.app_menu.get_children():
@@ -256,7 +255,7 @@ class UdisksIndicator(object):
                        #print(partitions)
 
             except Exception as e:
-                print(e)
+                #print(e)
                 pass
 
         partitions.sort()
@@ -294,7 +293,11 @@ class UdisksIndicator(object):
         command=[ 'zenity','--forms','--title','Make Alias',
                   '--add-combo','Partition','--combo-values',
                   combo_values,'--add-entry','Alias'    ]        
-        alias = self.run_cmd(command).decode().strip().split('|')
+        user_input = self.run_cmd(command)
+        if not user_input: return
+
+        alias = user_input.decode().strip().split('|')
+
         existing_values = None
 
         if os.path.isfile(self.config_file):
@@ -311,7 +314,7 @@ class UdisksIndicator(object):
              else:
                  existing_values = {alias[0]:alias[1]}
 
-             print(existing_values)
+             #print(existing_values)
              json.dump(existing_values,conf_file,indent=4,sort_keys=True)
         
 
