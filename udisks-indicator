@@ -62,7 +62,7 @@ class UdisksIndicator(object):
 
 
     def update(self):
-        timeout = 5
+        timeout = 10
         glib.timeout_add_seconds(timeout,self.callback)
 
     def callback(self):
@@ -339,6 +339,8 @@ class UdisksIndicator(object):
            original = '/usr/share/applications/udisks-indicator.desktop'
            if os.path.exists(original):
                shutil.copyfile(original,full_path)
+
+        self.make_menu()
 
 
     def open_mountpoint(self,*args):
