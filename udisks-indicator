@@ -94,8 +94,9 @@ class UdisksIndicator(object):
 
             fill = float(i[3]) 
             fill = int(fill/10)
-            usage_bar = '\n' + u'\u25A7'*fill + u'\u25A1'*(10-fill)
- 
+            # \u25A7 and \u25A1; maybe 2588
+            #usage_bar = '\n' + u'\u2593'*fill + u'\u2591'*(10-fill)
+            usage_bar = '\n' + u'\u2588'*fill + u'\u2592'*(10-fill)
             item = part + drive + mount + usage + usage_bar
             if alias:
                 alias = "\nAlias: " + alias
