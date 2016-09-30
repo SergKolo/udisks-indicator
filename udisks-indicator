@@ -91,11 +91,15 @@ class UdisksIndicator(object):
             drive = "\nDrive: " + i[1]
             mount = "\nMountPoint: " + i[2]
             usage = "\n%Usage: " + i[3]
-             
-            item = part + drive + mount + usage
+
+            fill = float(i[3]) 
+            fill = int(fill/10)
+            usage_bar = '\n' + u'\u25A7'*fill + u'\u25A1'*(10-fill)
+ 
+            item = part + drive + mount + usage + usage_bar
             if alias:
                 alias = "\nAlias: " + alias
-                item = part + alias + drive + mount + usage
+                item = part + alias + drive + mount + usage + usage_bar
 
             self.menu_item = gtk.MenuItem(item)
             self.menu_item.connect('activate',self.open_mountpoint,i[2])
@@ -113,6 +117,7 @@ class UdisksIndicator(object):
         for i in self.get_unmounted_partitions():
 
             # TODO: add type checking, prevent swap
+            # org.freedesktop.UDisks2.Block.IdType
 
             part = "Partition: " + i[0]
             alias = self.find_alias(i[0])
