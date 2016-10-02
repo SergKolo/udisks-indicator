@@ -86,11 +86,11 @@ class UdisksIndicator(object):
         partitions = self.get_partitions()
         for i in partitions:
 
-            part = "Partition: " + "        　 　" + i[0]
+            part = "Partition: " + "           " + i[0]
             alias = self.find_alias(i[0])
-            drive = "\nDrive: " + "            　      "  + i[1]
-            mount = "\nMountPoint: " + "  　 " + i[2]
-            usage = "\nUsage: " + "       　         " + i[3] + "%"
+            drive = "\nDrive: " + "                   "  + i[1]
+            mount = "\nMountPoint: " + "    " + i[2]
+            usage = "\nUsage: " + "                 " + i[3] + "%"
 
             fill = float(i[3]) 
             fill = int(fill/10)
@@ -99,7 +99,7 @@ class UdisksIndicator(object):
             usage_bar = '\n' + u'\u2588'*fill + u'\u2592'*(10-fill)
             item = part + drive + mount + usage + usage_bar
             if alias:
-                alias = "\nAlias: " + "      　             " + alias
+                alias = "\nAlias: " + "                    " + alias
                 item = part + alias + drive + mount + usage + usage_bar
 
             self.menu_item = gtk.MenuItem(item)
