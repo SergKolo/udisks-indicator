@@ -1,0 +1,17 @@
+Source: udisks-indicator
+Section: gnome
+Priority: extra
+Maintainer: Nathan Osman <nathan@quickmediasolutions.com>
+Build-Depends: debhelper (>= 9)
+Standards-Version: 3.9.8
+Homepage: https://github.com/SergKolo/udisks-indicator
+
+Package: udisks-indicator
+Architecture: all
+Depends: python3-gi,
+         gir1.2-appindicator3-0.1,
+         ${python:Depends},
+         ${misc:Depends}
+Description: Disk usage indicator
+ Indicator for viewing information about mounted partitions. It strives to be
+ visually similar to iStat Menu 3 for OS X.
