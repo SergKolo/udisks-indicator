@@ -122,9 +122,9 @@ class UdisksIndicator(object):
             fields = self.get_fields('neither')
          
  
-        label_lines = [None]*6
+        
         for i in partitions:
-            
+            label_lines = [None]*6
             label_lines[0] = fields[0] + i[0]
             label_lines[2] = fields[2] + i[1]
             label_lines[3] = fields[3] + i[2]
@@ -134,7 +134,7 @@ class UdisksIndicator(object):
             fill = int(fill/10)
             # \u25A7 and \u25A1; maybe 2588
             #usage_bar = '\n' + u'\u2593'*fill + u'\u2591'*(10-fill)
-            usage_bar = '\n' + u'\u2588'*fill + u'\u2592'*(10-fill)
+            usage_bar = u'\u2588'*fill + u'\u2592'*(10-fill)
             #item = part + drive + mount + usage + usage_bar
 
             # TODO: rewrite repetitive parts into nice function
@@ -149,6 +149,8 @@ class UdisksIndicator(object):
                 label_lines[1] = fields[1] + alias
             else:
                 label_lines.pop(1)
+
+            label_lines.append(usage_bar)
             item = '\n'.join(label_lines)
 
             self.menu_item = gtk.MenuItem(item)
