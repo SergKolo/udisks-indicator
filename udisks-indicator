@@ -35,6 +35,7 @@ gi.require_version('AppIndicator3', '0.1')
 from gi.repository import GLib as glib
 from gi.repository import AppIndicator3 as appindicator
 from gi.repository import Gtk as gtk
+from gi.repository import Gio
 from os import statvfs
 #from collections import OrderedDict
 import subprocess
@@ -75,6 +76,31 @@ class UdisksIndicator(object):
             self.make_menu()
         self.update()        
 
+    def add_menu_item(menu_obj,item_type,label,action):
+        pass
+
+    def get_fields(self,*args):
+
+        fields = ['Partition:','Alias:','Drive:',
+                  'MountPoint:','Filesystem:','Usage:'
+        ]
+
+        if args[-1] == 'default':
+            # Thanks to Mateo for figuring out these numbers
+            fields[0] = fields[0] + " "*12
+            fields[1] = fields[1] + " "*21
+            fields[2] = fields[2] + " "*19
+            fields[3] = fields[3] + " "*4
+            fields[4] = fields[4] + " "*8
+            fields[5] = fields[5] + " "*18
+
+        if args[-1] == 'mono':
+            for index,item in enumerate(fields):
+                fields[index] = self.pad_string(item,20," ")
+
+        return fields
+
+
     def make_menu(self,*args):
         """ generates entries in the indicator"""
         if hasattr(self, 'app_menu'):
@@ -84,13 +110,25 @@ class UdisksIndicator(object):
         self.app_menu = gtk.Menu()
 
         partitions = self.get_partitions()
-        for i in partitions:
 
-            part = "Partition: " + "           " + i[0]
-            alias = self.find_alias(i[0])
-            drive = "\nDrive: " + "                   "  + i[1]
-            mount = "\nMountPoint: " + "    " + i[2]
-            usage = "\nUsage: " + "                 " + i[3] + "%"
+        font = self.gsettings_get('org.gnome.desktop.interface',None,'font-name')
+        font = str(font).replace("'","") 
+        fields = []
+        if 'Ubuntu' in font and font.split()[1].isdigit():
+            fields = self.get_fields('default')
+        elif 'Mono' in font:
+            fields = self.get_fields('mono')
+        else:
+            fields = self.get_fields('neither')
+         
+ 
+        label_lines = [None]*6
+        for i in partitions:
+            
+            label_lines[0] = fields[0] + i[0]
+            label_lines[2] = fields[2] + i[1]
+            label_lines[3] = fields[3] + i[2]
+            label_lines[5] = fields[5] + i[3] + "%"
 
             fill = float(i[3]) 
             fill = int(fill/10)
@@ -101,16 +139,17 @@ class UdisksIndicator(object):
 
             # TODO: rewrite repetitive parts into nice function
             fs_type = str(self.get_filesystem_type(i[0]))
-
             if fs_type:
-               filesystem = "\nFilesystem:" + " "*8 + fs_type
+               label_lines[4] = fields[4] +  fs_type
             else:
-               filesystem = "\nFilesystem:" +  "unknown"
+               label_lines[4] = fields[4] +  "unknown"
 
-            item = part + drive + mount + usage + filesystem + usage_bar
+            alias = self.find_alias(i[0])
             if alias:
-                alias = "\nAlias: " + "                    " + alias
-                item = part + alias + drive + mount + filesystem +  usage + usage_bar
+                label_lines[1] = fields[1] + alias
+            else:
+                label_lines.pop(1)
+            item = '\n'.join(label_lines)
 
             self.menu_item = gtk.MenuItem(item)
             self.menu_item.connect('activate',self.open_mountpoint,i[2])
@@ -178,7 +217,10 @@ class UdisksIndicator(object):
         self.app_menu.append(self.autostart)
         self.autostart.show()
         
-        self.open_gnome_disks = gtk.MenuItem('Open Disks Utility')
+        self.open_gnome_disks = gtk.ImageMenuItem.new_with_label('Open Disks Utility')
+        self.open_gnome_disks.set_image(gtk.Image.new_from_icon_name('gnome-disks',16))
+        self.open_gnome_disks.set_always_show_image(True)
+
         self.open_gnome_disks.connect('activate',self.open_disks_utility)
         self.app_menu.append(self.open_gnome_disks)
         self.open_gnome_disks.show()
