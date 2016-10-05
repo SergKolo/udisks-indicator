@@ -97,10 +97,20 @@ class UdisksIndicator(object):
             # \u25A7 and \u25A1; maybe 2588
             #usage_bar = '\n' + u'\u2593'*fill + u'\u2591'*(10-fill)
             usage_bar = '\n' + u'\u2588'*fill + u'\u2592'*(10-fill)
-            item = part + drive + mount + usage + usage_bar
+            #item = part + drive + mount + usage + usage_bar
+
+            # TODO: rewrite repetitive parts into nice function
+            fs_type = str(self.get_filesystem_type(i[0]))
+
+            if fs_type:
+               filesystem = "\nFilesystem:" + " "*8 + fs_type
+            else:
+               filesystem = "\nFilesystem:" +  "unknown"
+
+            item = part + drive + mount + usage + filesystem + usage_bar
             if alias:
                 alias = "\nAlias: " + "                    " + alias
-                item = part + alias + drive + mount + usage + usage_bar
+                item = part + alias + drive + mount + filesystem +  usage + usage_bar
 
             self.menu_item = gtk.MenuItem(item)
             self.menu_item.connect('activate',self.open_mountpoint,i[2])
@@ -123,10 +133,16 @@ class UdisksIndicator(object):
             part = "Partition: " + i[0]
             alias = self.find_alias(i[0])
             drive = "\nDrive: " + i[1]
-            label = part + drive
+            fs_type = str(self.get_filesystem_type(i[0]))
+            if fs_type:
+               filesystem = "\nFilesystem: " + fs_type
+            else:
+               filesystem = "\nFilesystem: unknown"
+            label = part + drive + filesystem
+
             if alias: 
                alias = "\nAlias: " + alias
-               label = part + alias + drive
+               label = part + alias + drive + filesystem
         
             self.menu_item = gtk.MenuItem(label)
             self.menu_item.connect('activate',self.mount_partition,i[0])
@@ -174,9 +190,29 @@ class UdisksIndicator(object):
 
         self.app.set_menu(self.app_menu)
 
+    def pad_string(self,orig,length,pad):
+        """ Pads characters to string to make it 
+            have specific length and returns it"""
+        return orig + pad*(length - len(orig))
+
+
     def mount_partition(self,*args):
         # TODO: implement error checking for mounting
         return self.run_cmd(['udisksctl','mount','-b','/dev/' + args[-1]])
+
+    def get_filesystem_type(self,dev):
+        args = ['system',
+                'org.freedesktop.UDisks2',
+                '/org/freedesktop/UDisks2/block_devices/' + dev,
+                'org.freedesktop.UDisks2.Block',
+                'IdType'
+        ]
+        try:
+            return str(self.get_dbus_property(*args))
+        except Exception as e:
+            print(str(e))
+            return None
+            
 
     def get_mountpoint_usage(self,mountpoint):
         fs = statvfs(mountpoint)
@@ -215,8 +251,7 @@ class UdisksIndicator(object):
                        part = str(item.split('/')[-1])
                        partitions.append((part,drive,mountpoint,usage))                       
 
-            except Exception as e:
-                #print(e)
+            except:
                 pass
 
         # returning list of tuples
@@ -232,8 +267,7 @@ class UdisksIndicator(object):
                              'org.freedesktop.UDisks2.Filesystem',
                              'MountPoints')[0]
     
-        except Exception as e:
-            #print(e)
+        except:
             return None
         else:
             if len(data) > 0:
@@ -247,7 +281,6 @@ class UdisksIndicator(object):
                            'org.freedesktop.DBus.ObjectManager',
                            'GetManagedObjects',
                            None)
-        
         
         partitions = []
         for item in objects:
@@ -304,7 +337,6 @@ class UdisksIndicator(object):
         partitions = [ i[0] for i in self.get_partitions() ]
 
         combo_values = '|'.join(partitions)
-        #print(combo_values)
         command=[ 'zenity','--forms','--title','Make Alias',
                   '--add-combo','Partition','--combo-values',
                   combo_values,'--add-entry','Alias'    ]        
@@ -314,7 +346,6 @@ class UdisksIndicator(object):
         alias = user_input.decode().strip().split('|')
 
         existing_values = None
-
         if os.path.isfile(self.config_file):
             with open(self.config_file) as conf_file:
                 try:
@@ -328,8 +359,6 @@ class UdisksIndicator(object):
                  existing_values[alias[0]] = alias[1]
              else:
                  existing_values = {alias[0]:alias[1]}
-
-             #print(existing_values)
              json.dump(existing_values,conf_file,indent=4,sort_keys=True)
         
 
@@ -366,6 +395,14 @@ class UdisksIndicator(object):
 
     def open_disks_utility(self,*args):
         pid = subprocess.Popen(['gnome-disks']).pid
+
+    def gsettings_get(self, schema, path, key):
+        """Get value of gsettings schema"""
+        if path is None:
+            gsettings = Gio.Settings.new(schema)
+        else:
+            gsettings = Gio.Settings.new_with_path(schema, path)
+        return gsettings.get_value(key)
 
     def run_cmd(self, cmdlist):
         """ Reusable function for running external commands """
