@@ -213,12 +213,12 @@ class UdisksIndicator(object):
             drive = "\nDrive: " + i[1]
             fs_type = str(self.get_filesystem_type(i[0]))
 
-            icon = None
+            icon = 'drive-harddisk-system'
             if fs_type:
                filesystem = "\nFilesystem: " + fs_type
                #icon = 'drive-removable-media'
               # icon = 'drive-multidisk'
-               icon = 'drive-harddisk-system'
+               
                if fs_type == 'swap':
                   filesystem = filesystem + " NOT MOUNTABLE"
                   icon = 'dialog-error'
@@ -242,7 +242,7 @@ class UdisksIndicator(object):
                alias = "\nAlias: " + alias
                label = part + alias + drive + filesystem
 
-            
+             
             self.add_menu_item(
                  self.unmounted_submenu,gtk.ImageMenuItem,
                  icon,label,
