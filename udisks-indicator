@@ -76,19 +76,49 @@ class UdisksIndicator(object):
             self.make_menu()
         self.update()        
 
-    def add_menu_item(menu_obj,item_type,label,action):
-        pass
+    def add_menu_item(self,menu_obj,item_type,image,label,action,args):
+        menu_item,icon = None,None
+        if item_type is gtk.ImageMenuItem and label:
+            menu_item = gtk.ImageMenuItem.new_with_label(label)
+            menu_item.set_always_show_image(True)
+            if '/' in image:
+                icon = gtk.Image.new_from_file(image)
+            else:
+                icon = gtk.Image.new_from_icon_name(image,16)
+            menu_item.set_image(icon)
+        elif item_type is gtk.ImageMenuItem and not label:
+            menu_item = gtk.ImageMenuItem()
+            menu_item.set_always_show_image(True)
+            if '/' in image:
+                icon = gtk.Image.new_from_file(image)
+            else:
+                icon = gtk.Image.new_from_icon_name(image,16)
+            menu_item.set_image(icon)
+        elif item_type is gtk.MenuItem:
+            menu_item = gtk.MenuItem(label)
+        elif item_type is gtk.SeparatorMenuItem:
+            menu_item = gtk.SeparatorMenuItem()
+        if action:
+            menu_item.connect('activate',action,*args)
+
+        menu_obj.append(menu_item)
+        menu_item.show()
 
     def get_fields(self,*args):
-
+        """ Returns info field items necessary for
+            each entry, padded depending on 
+            the system font used - default or monospace.
+            Other font types are not covered
+        """
+            
         fields = ['Partition:','Alias:','Drive:',
                   'MountPoint:','Filesystem:','Usage:'
         ]
 
         if args[-1] == 'default':
             # Thanks to Mateo for figuring out these numbers
-            fields[0] = fields[0] + " "*12
-            fields[1] = fields[1] + " "*21
+            fields[0] = fields[0] + " "*11
+            fields[1] = fields[1] + " "*20
             fields[2] = fields[2] + " "*19
             fields[3] = fields[3] + " "*4
             fields[4] = fields[4] + " "*8
@@ -135,7 +165,6 @@ class UdisksIndicator(object):
             # \u25A7 and \u25A1; maybe 2588
             #usage_bar = '\n' + u'\u2593'*fill + u'\u2591'*(10-fill)
             usage_bar = u'\u2588'*fill + u'\u2592'*(10-fill)
-            #item = part + drive + mount + usage + usage_bar
 
             # TODO: rewrite repetitive parts into nice function
             fs_type = str(self.get_filesystem_type(i[0]))
@@ -151,12 +180,20 @@ class UdisksIndicator(object):
                 label_lines.pop(1)
 
             label_lines.append(usage_bar)
-            item = '\n'.join(label_lines)
+            label = '\n'.join(label_lines)
 
-            self.menu_item = gtk.MenuItem(item)
-            self.menu_item.connect('activate',self.open_mountpoint,i[2])
-            self.app_menu.append(self.menu_item)
-            self.menu_item.show()
+            
+            icon = 'drive-harddisk'            
+            self.add_menu_item(
+                 self.app_menu,gtk.ImageMenuItem,
+                 icon,label,
+                 self.open_mountpoint,[i[2]]
+            )       
+
+#            self.menu_item = gtk.MenuItem(item)
+#            self.menu_item.connect('activate',self.open_mountpoint,i[2])
+#            self.app_menu.append(self.menu_item)
+#            self.menu_item.show()
 
             self.separator = gtk.SeparatorMenuItem()
             self.app_menu.append(self.separator)
@@ -175,24 +212,54 @@ class UdisksIndicator(object):
             alias = self.find_alias(i[0])
             drive = "\nDrive: " + i[1]
             fs_type = str(self.get_filesystem_type(i[0]))
+
+            icon = None
             if fs_type:
                filesystem = "\nFilesystem: " + fs_type
+               #icon = 'drive-removable-media'
+              # icon = 'drive-multidisk'
+               icon = 'drive-harddisk-system'
+               if fs_type == 'swap':
+                  filesystem = filesystem + " NOT MOUNTABLE"
+                  icon = 'dialog-error'
+               if 'iso' in fs_type:
+                  icon = 'media-optical'
             else:
                filesystem = "\nFilesystem: unknown"
+
+            bus_type = self.get_dbus_property(
+                       'system','org.freedesktop.UDisks2',
+                       '/org/freedesktop/UDisks2/drives/' + i[1],
+                       'org.freedesktop.UDisks2.Drive','ConnectionBus'
+            )
+
+            if  bus_type == 'usb':
+                icon = 'drive-removable-media-usb'
+
             label = part + drive + filesystem
 
             if alias: 
                alias = "\nAlias: " + alias
                label = part + alias + drive + filesystem
-        
-            self.menu_item = gtk.MenuItem(label)
-            self.menu_item.connect('activate',self.mount_partition,i[0])
-            self.unmounted_submenu.append(self.menu_item)
-            self.menu_item.show()
 
-            self.separator = gtk.SeparatorMenuItem()
-            self.unmounted_submenu.append(self.separator)
-            self.separator.show()
+            
+            self.add_menu_item(
+                 self.unmounted_submenu,gtk.ImageMenuItem,
+                 icon,label,
+                 self.mount_partition,[i[0]]
+            )       
+#            self.menu_item = gtk.MenuItem(label)
+#            self.menu_item.connect('activate',self.mount_partition,i[0])
+#            self.unmounted_submenu.append(self.menu_item)
+#            self.menu_item.show()
+            self.add_menu_item(
+                 self.unmounted_submenu,gtk.SeparatorMenuItem,
+                 None,None,
+                 None,[None]
+            )
+#            self.separator = gtk.SeparatorMenuItem()
+#            self.unmounted_submenu.append(self.separator)
+#            self.separator.show()
 
         self.app_menu.append(self.unmounted)
         self.unmounted.show()
