@@ -110,9 +110,6 @@ class UdisksIndicator(object):
             menu_item = gtk.MenuItem(label)
         elif item_type is gtk.SeparatorMenuItem:
             menu_item = gtk.SeparatorMenuItem()
-        elif item_type  is gtk.CheckMenuItem:
-            menu_item = gtk.CheckMenuItem.new_with_label(label)
-            menu_item.set_active(False)
         if action:
             menu_item.connect('activate',action,*args)
 
@@ -304,6 +301,7 @@ class UdisksIndicator(object):
         menu_item = gtk.CheckMenuItem.new_with_label(label)
         if os.path.exists(full_path):
              menu_item.set_active(True)   
+        menu_item.connect('activate',self.toggle_auto_startup)
         self.app_menu.append(menu_item)
         menu_item.show()
 
