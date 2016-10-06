@@ -110,6 +110,9 @@ class UdisksIndicator(object):
             menu_item = gtk.MenuItem(label)
         elif item_type is gtk.SeparatorMenuItem:
             menu_item = gtk.SeparatorMenuItem()
+        elif item_type  is gtk.CheckMenuItem:
+            menu_item = gtk.CheckMenuItem.new_with_label(label)
+            menu_item.set_active(False)
         if action:
             menu_item.connect('activate',action,*args)
 
@@ -297,13 +300,20 @@ class UdisksIndicator(object):
         desktop_file = '.config/autostart/udisks-indicator.desktop'
         full_path = os.path.join(self.user_home,desktop_file)
         label = 'Start Automatically' 
+
+        menu_item = gtk.CheckMenuItem.new_with_label(label)
         if os.path.exists(full_path):
-           label = ' \u2714' + label
-        contents = [self.app_menu,gtk.MenuItem,None,
-                    label,self.toggle_auto_startup,[None]
-        ]
-        self.add_menu_item(*contents)
-       
+             menu_item.set_active(True)   
+        self.app_menu.append(menu_item)
+        menu_item.show()
+
+        #   label = ' \u2714' + label
+        #contents = [self.app_menu,gtk.CheckMenuItem,None,
+        #            label,self.toggle_auto_startup,[None]
+        #]
+        #self.add_menu_item(*contents)
+     
+
         contents = [self.app_menu,gtk.ImageMenuItem,'gnome-disks',
                     'Open Disks Utility',self.open_disks_utility,[None]
         ] 
@@ -337,7 +347,7 @@ class UdisksIndicator(object):
             cmd = ['udisksctl','mount','-b','/dev/'+args[-1]]
             subprocess.check_call(cmd)
         except subprocess.CalledProcessError as e:
-            print(e)
+            print(str(e))
             pass
 
     def get_filesystem_type(self,dev):
