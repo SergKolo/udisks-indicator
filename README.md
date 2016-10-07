@@ -1,6 +1,10 @@
 # udisks-indicator
 Indicator for Ubuntu with Unity desktop to show disk usage
-[![Sample Screenshot](http://i.imgur.com/paZNp5W.png)](http://i.imgur.com/paZNp5W.png)
+
+*With "Adwaita" Icon Theme*
+[![Adwaita](http://i.imgur.com/zgKn63r.png)](http://i.imgur.com/zgKn63r.png)
+*Ubuntu Kylin Theme*
+[![UbuntuKylin](http://i.imgur.com/paZNp5W.png)](http://i.imgur.com/paZNp5W.png)
 
 ### Overview
 
