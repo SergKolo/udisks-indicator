@@ -42,6 +42,7 @@ from os import statvfs
 import subprocess
 import shutil
 import dbus
+import math
 import json
 import os
 
@@ -191,7 +192,13 @@ class UdisksIndicator(object):
             label_lines[0] = fields[0] + i[0]
             label_lines[2] = fields[2] + i[1]
             label_lines[3] = fields[3] + i[2]
-            label_lines[5] = fields[5] + i[3] + "%"
+            label_lines[5] = fields[5] + i[3] + '%'
+            
+            hr_value = self.get_human_readable(int(i[4]))
+            label_lines[5] = label_lines[5] + ' (' + hr_value + ')' 
+            
+            
+                             
            
             icon = drive_icon
             #icon = 'gnome-dev-harddisk' 
@@ -328,6 +335,7 @@ class UdisksIndicator(object):
 
         self.app.set_menu(self.app_menu)
 
+
     def make_usage_bar(self,usage):
         """ creates usage bar out of unicode characters""" 
         fill = float(usage) 
@@ -335,6 +343,21 @@ class UdisksIndicator(object):
         # \u25A7 and \u25A1; maybe 2588
         #usage_bar = '\n' + u'\u2593'*fill + u'\u2591'*(10-fill)
         return u'\u2588'*fill + u'\u2592'*(10-fill)
+
+    def get_human_readable(self,size):
+         
+         prefix = ['B','KiB','MiB','GiB',
+                   'TiB','PiB','EiB',
+                   'ZiB','YiB'
+         ]
+         counter = 0
+         while size/1024 > 0.9:
+               counter = counter + 1
+               size = size/1024
+               print(size)
+    
+         return str(round(size,2)) +"  "+prefix[counter]
+
 
 
     def pad_string(self,orig,length,pad):
@@ -370,18 +393,25 @@ class UdisksIndicator(object):
             return None
 
     def get_bus_type(self,drive):
-            """ Determines bus type of the bus via
-            which a drive is connected """
-            return self.get_dbus_property(
-                       'system','org.freedesktop.UDisks2',
-                       '/org/freedesktop/UDisks2/drives/' + drive,
-                       'org.freedesktop.UDisks2.Drive','ConnectionBus'
-            )
+        """ Determines bus type of the bus via
+        which a drive is connected """
+        return self.get_dbus_property(
+                   'system','org.freedesktop.UDisks2',
+                   '/org/freedesktop/UDisks2/drives/' + drive,
+                   'org.freedesktop.UDisks2.Drive','ConnectionBus'
+        )
             
     def get_mountpoint_usage(self,mountpoint):
+        """ performs statvfs syscall and calculates usage
+        from the amount of filesystem blocks used. Returns
+        tuple of percentage and actual byte size used"""
         fs = statvfs(mountpoint)
-        usage = 100*(float(fs.f_blocks)-float(fs.f_bfree))/float(fs.f_blocks)
-        return str("{0:.2f}".format(usage))
+        used_blocks = float(fs.f_blocks) - float(fs.f_bfree)
+        used_bytes = int(fs.f_bsize * used_blocks)
+        pcent_use = 100 * (used_blocks/float(fs.f_blocks))
+        return (str("{0:.2f}".format(pcent_use)),
+                str(used_bytes) 
+        )
 
     def get_partitions(self):
         contents = [ 
@@ -406,10 +436,10 @@ class UdisksIndicator(object):
                        mountpoint = mountpoint.replace('\x00','')
     
                        drive = str(drive).split('/')[-1]
-                       usage = self.get_mountpoint_usage(mountpoint)
+                       pcent_use,byte_use = self.get_mountpoint_usage(mountpoint)
 
                        part = str(item.split('/')[-1])
-                       partitions.append((part,drive,mountpoint,usage))                       
+                       partitions.append((part,drive,mountpoint,pcent_use,byte_use))                       
 
             except:
                 pass
