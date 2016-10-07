@@ -345,7 +345,10 @@ class UdisksIndicator(object):
         return u'\u2588'*fill + u'\u2592'*(10-fill)
 
     def get_human_readable(self,size):
-         
+         """ converts size in bytes to 
+         human readable value in powers of 1024.
+         Essentially, same as what df -h gives, or
+         """
          prefix = ['B','KiB','MiB','GiB',
                    'TiB','PiB','EiB',
                    'ZiB','YiB'
@@ -354,7 +357,6 @@ class UdisksIndicator(object):
          while size/1024 > 0.9:
                counter = counter + 1
                size = size/1024
-               print(size)
     
          return str(round(size,2)) +"  "+prefix[counter]
 
