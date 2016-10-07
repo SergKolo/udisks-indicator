@@ -36,6 +36,7 @@ from gi.repository import GLib as glib
 from gi.repository import AppIndicator3 as appindicator
 from gi.repository import Gtk as gtk
 from gi.repository import Gio
+from gi.repository import Notify
 from os import statvfs
 #from collections import OrderedDict
 import subprocess
@@ -61,6 +62,8 @@ class UdisksIndicator(object):
         self.user_home = os.path.expanduser('~')
         self.config_file = os.path.join(self.user_home,filename)
         self.cache = self.get_partitions()
+        
+        self.note = Notify.Notification.new(__file__,None,None)
 
         self.cache_icon_theme = self.gsettings_get(
              'org.gnome.desktop.interface',None,'icon-theme' 
@@ -338,6 +341,9 @@ class UdisksIndicator(object):
             have specific length and returns it"""
         return orig + pad*(length - len(orig))
 
+    def send_notif(self,note_obj,title,text):
+        note_obj.update(title,text)
+        note_obj.show()
 
     def mount_partition(self,*args):
         # TODO: implement error checking for mounting
@@ -345,6 +351,7 @@ class UdisksIndicator(object):
             cmd = ['udisksctl','mount','-b','/dev/'+args[-1]]
             subprocess.check_call(cmd)
         except subprocess.CalledProcessError as e:
+            self.send_notif(self.note,'Mounting Error',str(e))
             print(str(e))
             pass
 
