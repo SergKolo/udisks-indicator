@@ -64,6 +64,7 @@ class UdisksIndicator(object):
         self.cache = self.get_partitions()
         
         self.note = Notify.Notification.new(__file__,None,None)
+        Notify.init(__file__)
 
         self.cache_icon_theme = self.gsettings_get(
              'org.gnome.desktop.interface',None,'icon-theme' 
@@ -349,9 +350,9 @@ class UdisksIndicator(object):
         # TODO: implement error checking for mounting
         try:
             cmd = ['udisksctl','mount','-b','/dev/'+args[-1]]
-            subprocess.check_call(cmd)
+            subprocess.check_output(cmd,stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            self.send_notif(self.note,'Mounting Error',str(e))
+            self.send_notif(self.note,'Mounting Error',e.output.decode())
             print(str(e))
             pass
 
