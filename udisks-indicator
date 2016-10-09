@@ -86,7 +86,7 @@ class UdisksIndicator(object):
 
     def is_mate(self):
         """ detect mate session """
-        panel_pid = run_cmd(['pgrep','mate-panel'])
+        panel_pid = self.run_cmd(['pgrep','mate-panel'])
         if panel_pid:
            return True
 
