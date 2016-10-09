@@ -55,8 +55,8 @@ class UdisksIndicator(object):
             'udisks-indicator', "drive-harddisk-symbolic.svg",
             appindicator.IndicatorCategory.HARDWARE
             )
-
-        if not self.app.get_icon():
+         
+        if is_mate():
            self.app.set_icon("drive-harddisk-symbolic")
 
         self.app.set_status(appindicator.IndicatorStatus.ACTIVE)
@@ -83,6 +83,12 @@ class UdisksIndicator(object):
         )
         self.make_menu()
         self.update()
+
+    def is_mate():
+        """ detect mate session """
+        panel_pid = run_cmd(['pgrep','mate-panel'])
+        if panel_pid:
+           return True
 
     def read_prefs_file(self,*args):
         default = { 'fields': [True]*5, 'autostart':False }
