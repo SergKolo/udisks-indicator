@@ -56,7 +56,7 @@ class UdisksIndicator(object):
             appindicator.IndicatorCategory.HARDWARE
             )
          
-        if is_mate():
+        if self.is_mate():
            self.app.set_icon("drive-harddisk-symbolic")
 
         self.app.set_status(appindicator.IndicatorStatus.ACTIVE)
@@ -84,7 +84,7 @@ class UdisksIndicator(object):
         self.make_menu()
         self.update()
 
-    def is_mate():
+    def is_mate(self):
         """ detect mate session """
         panel_pid = run_cmd(['pgrep','mate-panel'])
         if panel_pid:
