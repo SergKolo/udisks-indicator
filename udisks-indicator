@@ -32,6 +32,7 @@
 # SOFTWARE.
 import gi
 gi.require_version('AppIndicator3', '0.1')
+gi.require_version('Notify', '0.7')
 from gi.repository import GLib as glib
 from gi.repository import AppIndicator3 as appindicator
 from gi.repository import Gtk as gtk
@@ -40,6 +41,7 @@ from gi.repository import Notify
 from os import statvfs
 #from collections import OrderedDict
 import subprocess
+import copy
 import shutil
 import dbus
 import math
@@ -59,8 +61,19 @@ class UdisksIndicator(object):
 
         self.app.set_status(appindicator.IndicatorStatus.ACTIVE)
 
-        filename = '.partition_aliases.json'
+
+        self.fields = ['Partition','Alias','Drive',
+                  'MountPoint','Filesystem','Usage'
+        ]
+        
         self.user_home = os.path.expanduser('~')
+        filename = '.udisks-indicator-preferences.json'
+        self.prefs_file = os.path.join(self.user_home,filename)
+        self.prefs = self.read_prefs_file() 
+        #self.fields_set = self.prefs['fields']
+        #self.autostart = self.prefs[]
+
+        filename = '.partition_aliases.json'
         self.config_file = os.path.join(self.user_home,filename)
         self.cache = self.get_partitions()
         
@@ -73,6 +86,32 @@ class UdisksIndicator(object):
         self.make_menu()
         self.update()
 
+    def read_prefs_file(self,*args):
+        default = { 'fields': [True]*5, 'autostart':False }
+        if not os.path.exists(self.prefs_file):
+           return default
+
+        with open(self.prefs_file) as f:
+            try:
+                return json.load(f)
+            except:
+                return default
+ 
+    def write_prefs_file(self,*args):
+        with open(self.prefs_file,'w') as f:
+            try:
+                json.dump(self.prefs,f,
+                          indent=4,sort_keys=True
+                )
+            except Exception as e:
+                self.send_notif(
+                    self.note,
+                    'Failed writing '+self.prefs_file,
+                    str(e)
+                )
+                
+                
+ 
 
     def update(self):
         timeout = 5
@@ -127,11 +166,9 @@ class UdisksIndicator(object):
             the system font used - default or monospace.
             Other font types are not covered
         """
-            
-        fields = ['Partition:','Alias:','Drive:',
-                  'MountPoint:','Filesystem:','Usage:'
-        ]
-
+        fields = [ i + ':' for i in self.fields]
+        
+        
         if args[-1] == 'default':
             # Thanks to Mateo for figuring out these numbers
             fields[0] = fields[0] + " "*11
@@ -196,10 +233,7 @@ class UdisksIndicator(object):
             
             hr_value = self.get_human_readable(int(i[4]))
             label_lines[5] = label_lines[5] + ' (' + hr_value + ')' 
-            
-            
-                             
-           
+
             icon = drive_icon
             #icon = 'gnome-dev-harddisk' 
             #icon = 'block-device'
@@ -227,11 +261,17 @@ class UdisksIndicator(object):
             if alias:
                 label_lines[1] = fields[1] + alias
             else:
-                label_lines.pop(1)
+                label_lines[1] = None
 
             usage_bar = self.make_usage_bar(i[3])
             label_lines.append(usage_bar)
-            label = '\n'.join(label_lines)
+
+            for j,f in enumerate(self.prefs['fields']):
+                if not f:
+                   label_lines[j] = None
+            
+
+            label = '\n'.join([l for l in label_lines if l])
 
             contents = [self.app_menu,gtk.ImageMenuItem,icon,
                         label,self.open_mountpoint,[i[2]]
@@ -300,21 +340,21 @@ class UdisksIndicator(object):
         self.app_menu.append(self.separator)
         self.separator.show()
 
-        contents = [self.app_menu,gtk.MenuItem,None,
+        contents = [self.app_menu,gtk.ImageMenuItem,'text-editor',
                     'Make Alias',self.make_alias,[None]
         ]
         self.add_menu_item(*contents)
  
-        desktop_file = '.config/autostart/udisks-indicator.desktop'
-        full_path = os.path.join(self.user_home,desktop_file)
-        label = 'Start Automatically' 
+#        desktop_file = '.config/autostart/udisks-indicator.desktop'
+#        full_path = os.path.join(self.user_home,desktop_file)
+#        label = 'Start Automatically' 
 
-        menu_item = gtk.CheckMenuItem.new_with_label(label)
-        if os.path.exists(full_path):
-             menu_item.set_active(True)   
-        menu_item.connect('activate',self.toggle_auto_startup)
-        self.app_menu.append(menu_item)
-        menu_item.show()
+        #menu_item = gtk.CheckMenuItem.new_with_label(label)
+        #if os.path.exists(full_path):
+        #     menu_item.set_active(True)   
+        #menu_item.connect('activate',self.toggle_auto_startup)
+        #self.app_menu.append(menu_item)
+        #menu_item.show()
 
         #   label = ' \u2714' + label
         #contents = [self.app_menu,gtk.CheckMenuItem,None,
@@ -327,13 +367,121 @@ class UdisksIndicator(object):
                     'Open Disks Utility',self.open_disks_utility,[None]
         ] 
         self.add_menu_item(*contents) 
-
+        contents = [self.app_menu,gtk.ImageMenuItem,'gtk-preferences',
+                    'Preferences',self.preferences_dialog,[None]
+        ]
+        self.add_menu_item(*contents)
         contents = [self.app_menu,gtk.ImageMenuItem,'exit',
                     'Quit',self.quit,[None]
         ]
         self.add_menu_item(*contents)
-
         self.app.set_menu(self.app_menu)
+
+    def preferences_dialog(self,*args):
+
+        def _toggle_field(*args):
+            pref_vals = args[-1]
+            pref_vals[args[-2]] = args[0].get_state()
+            #self.make_menu()
+
+        def _ok_action(*args):
+            self.prefs['fields'] = copy.deepcopy(args[-2])
+            self.prefs['autostart'] = args[-1][0]
+            self.process_autostart_file()
+            self.write_prefs_file()
+            glib.timeout_add_seconds(1,self.make_menu)
+            window.hide()
+
+        def _set_defaults(*args):
+            self.prefs['fields'] = [True]*5
+            self.prefs['autostart'] = False
+            os.unlink(self.prefs_file)
+            window.hide()
+
+        def _toggle_autostart(*args):
+            obj = args[-1]
+            obj[0] = args[0].get_state()
+
+        def _cancel_action(*args):
+            window.hide()
+
+       
+        prefs = copy.deepcopy(self.prefs['fields'])
+        autostart = [copy.deepcopy(self.prefs['autostart'])]
+        window = gtk.Window()
+        window.set_border_width(40)
+        vert = gtk.Orientation.VERTICAL
+        horz = gtk.Orientation.HORIZONTAL
+
+        main_box = gtk.Box(orientation=vert,spacing=20)
+        listbox = gtk.ListBox()
+        listbox.set_selection_mode(gtk.SelectionMode.NONE)
+        main_box.pack_start(listbox,True,True,0)
+        window.add(main_box)
+
+        row = gtk.ListBoxRow()
+        listbox.add(row)
+        label = gtk.Label('',xalign=0)
+        label.set_markup("<b>INFO FIELDS</b>")
+        row.add(label)
+
+        for i,f in enumerate(self.fields): 
+            if i == 0 or i == 5:
+                continue
+            row = gtk.ListBoxRow()
+            listbox.add(row)
+            aux_box1 = gtk.Box(orientation=horz, spacing=20)
+            aux_box2 = gtk.Box(orientation=vert,spacing=20)
+            aux_box1.pack_start(aux_box2,True,True,0)
+           
+            switch = gtk.Switch()
+            label = gtk.Label(f,xalign=0)
+
+            switch.props.valign = gtk.Align.CENTER
+            if self.prefs['fields'][i]:
+                switch.set_state(True)
+            switch.connect('notify::active',_toggle_field,i,prefs)
+    
+            aux_box1.pack_start(switch,False,True,0)
+            aux_box2.pack_start(label,True,True,0)
+            row.add(aux_box1)
+
+        row = gtk.ListBoxRow()
+        listbox.add(row)
+        label = gtk.Label('',xalign=0)
+        label.set_markup("<b>OTHER OPTIONS</b>")
+        row.add(label)
+
+ 
+        row = gtk.ListBoxRow()
+        listbox.add(row)
+        aux_box = gtk.Box(orientation=horz,spacing=20)
+        switch = gtk.Switch()
+        if self.prefs['autostart']:
+           switch.set_state(True)
+        switch.connect('notify::active',_toggle_autostart,autostart)
+        label = gtk.Label('Autostart',xalign=0)
+        aux_box.pack_start(switch,False,True,0)
+        aux_box.pack_start(label,True,True,0)
+        row.add(aux_box)
+
+        row = gtk.ListBoxRow()
+        listbox.add(row)
+        aux_box = gtk.Box(orientation=horz,spacing=20)
+        for i in ['Set Defaults','Cancel','OK']:
+            button = gtk.Button.new_with_label(i)
+            if i == 'OK':
+               button.connect('clicked',_ok_action,prefs,autostart)
+            if i == 'Cancel':
+               button.connect('clicked',_cancel_action,autostart)
+            if i == 'Set Defaults':
+               button.connect('clicked',_set_defaults)
+            aux_box.pack_start(button,False,True,0)
+        row.add(aux_box)
+
+        window.connect("delete-event",_cancel_action)
+        listbox.show_all()
+        window.show_all()
 
 
     def make_usage_bar(self,usage):
@@ -341,7 +489,7 @@ class UdisksIndicator(object):
         fill = float(usage) 
         fill = int(fill/10)
         # \u25A7 and \u25A1; maybe 2588
-        #usage_bar = '\n' + u'\u2593'*fill + u'\u2591'*(10-fill)
+        #return u'\u2593'*fill + u'\u2591'*(10-fill)
         return u'\u2588'*fill + u'\u2592'*(10-fill)
 
     def get_human_readable(self,size):
@@ -528,7 +676,8 @@ class UdisksIndicator(object):
         partitions = [ i[0] for i in self.get_partitions() ]
 
         combo_values = '|'.join(partitions)
-        command=[ 'zenity','--forms','--title','Make Alias',
+        command=[ 'zenity','--forms','--title',
+                  'Make Alias','--text','',
                   '--add-combo','Partition','--combo-values',
                   combo_values,'--add-entry','Alias'    ]        
         user_input = self.run_cmd(command)
@@ -567,19 +716,19 @@ class UdisksIndicator(object):
                     else:
                        return None
 
-    def toggle_auto_startup(self,*args):
-        user_home = os.path.expanduser('~')
+    def process_autostart_file(self,*args):
         desktop_file = '.config/autostart/udisks-indicator.desktop'
-        full_path = os.path.join(user_home,desktop_file)
+        full_path = os.path.join(
+                    self.user_home,
+                    desktop_file
+        )
 
-        if os.path.exists(full_path):
-           os.unlink(full_path)
-        else:
+        if self.prefs['autostart'] and not os.path.exists(full_path):
            original = '/usr/share/applications/udisks-indicator.desktop'
            if os.path.exists(original):
                shutil.copyfile(original,full_path)
-
-        self.make_menu()
+        elif not self.prefs['autostart'] and os.path.exists(full_path):
+           os.unlink(full_path)
 
 
     def open_mountpoint(self,*args):
