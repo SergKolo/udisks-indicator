@@ -124,6 +124,7 @@ class UdisksIndicator(object):
                      'org.gnome.desktop.interface',None,'icon-theme' 
         )
         if self.cache != current:
+            print('cache changed')
             self.cache = current
             self.make_menu()
         if self.cache_icon_theme != icon_theme:
@@ -356,6 +357,15 @@ class UdisksIndicator(object):
         ]
         self.add_menu_item(*contents)
         self.app.set_menu(self.app_menu)
+
+        child = self.find_menu_child(self.app_menu,'sda1')
+        if child: child.set_label('TEST')
+
+    def find_menu_child(self,menu,label):
+        for child in menu.get_children():
+            if label in child.get_label():
+                return child
+                    
 
     def preferences_dialog(self,*args):
 

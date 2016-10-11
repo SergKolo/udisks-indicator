@@ -32,3 +32,14 @@ The "Unmounted Partitions" menu lists all the partitions not currently mounted b
 The indicator uses default icons provided with the system, so the icon should be changing as you change the icon theme using Unity Tweak Tool or other methods. Information fields for each entry also adapt to nice formating if you are using Ubuntu's default font or any Monospace font ( others aren't supported) 
 
 In addition, the indicator provides bubble notifications if there are mounting errors
+
+### Featured articles:
+
+- [OMG!Ubuntu! Nifty Partition Mount Indicator for Ubuntu Gets Even Niftier](http://www.omgubuntu.co.uk/2016/10/udisks-indicator-partition-mount-applet-ubuntu) (features v2.0)
+- [OMG!Ubuntu! http://www.omgubuntu.co.uk/2016/09/udisks-indicator-applet-istat-menus-linux](http://www.omgubuntu.co.uk/2016/09/udisks-indicator-applet-istat-menus-linux) (features v1.0)
+
+
+
+[![paypalbutton](https://www.paypal.com/en_US/i/btn/btn_donate_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=CB9L72S9LEF66)
+
+
