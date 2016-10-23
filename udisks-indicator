@@ -81,6 +81,9 @@ class UdisksIndicator(object):
         self.cache_icon_theme = self.gsettings_get(
              'org.gnome.desktop.interface',None,'icon-theme' 
         )
+
+        self.mounted_devs = {} 
+
         self.make_menu()
         self.update()
 
@@ -124,13 +127,27 @@ class UdisksIndicator(object):
                      'org.gnome.desktop.interface',None,'icon-theme' 
         )
         if self.cache != current:
-            print('cache changed')
-            self.cache = current
-            self.make_menu()
+            #print('cache changed')
+            if len(self.cache) != len(current):
+               #print('rebuilding menu')
+               self.make_menu()
+            else:
+               for i in current:
+                  #print('updating label')
+                  #print(self.make_label(i))
+                  label = '\n'.join([j for j in self.make_label(i) if j])
+                  self.update_label(i[0],label)
+            self.cache = current           
         if self.cache_icon_theme != icon_theme:
             self.cache_icon_theme = icon_theme
             self.make_menu()
         self.update()        
+
+    def update_label(self,partition,label):
+        key = [ k for k in self.mounted_devs.keys() if partition in k]
+        #if key:
+           #print('found ',partition)
+        self.mounted_devs[key[0]].set_label(label)
 
     def add_menu_item(self,menu_obj,item_type,image,label,action,args):
         """ dynamic function that can add menu items depending on
@@ -159,6 +176,11 @@ class UdisksIndicator(object):
         if action:
             menu_item.connect('activate',action,*args)
 
+        # small addition for this specific indicator
+        if label:
+           if 'Partition' and 'Usage' in label:
+              self.mounted_devs[label] = menu_item
+              
         menu_obj.append(menu_item)
         menu_item.show()
 
@@ -168,10 +190,16 @@ class UdisksIndicator(object):
             the system font used - default or monospace.
             Other font types are not covered
         """
+        font = self.gsettings_get(
+                    'org.gnome.desktop.interface',
+                    None,
+                    'font-name'
+        )
+        font = str(font).replace("'","") 
+
+        
         fields = [ i + ':' for i in self.fields]
-        
-        
-        if args[-1] == 'default':
+        if 'Ubuntu' in font and font.split()[1].isdigit():
             # Thanks to Mateo for figuring out these numbers
             fields[0] = fields[0] + " "*11
             fields[1] = fields[1] + " "*20
@@ -180,12 +208,39 @@ class UdisksIndicator(object):
             fields[4] = fields[4] + " "*8
             fields[5] = fields[5] + " "*18
 
-        if args[-1] == 'mono':
+        elif 'Mono' in font:
             for index,item in enumerate(fields):
                 fields[index] = self.pad_string(item,20," ")
-
         return fields
 
+    def make_label(self,info):
+        fields = self.get_fields()
+        lines = [None]*6
+        lines[0] = fields[0] + info[0]
+        lines[2] = fields[2] + info[1]
+        lines[3] = fields[3] + info[2]
+        lines[5] = fields[5] + info[3] + '%'
+
+        hr_value = self.get_human_readable(int(info[4]))
+        lines[5] = lines[5] + ' (' + hr_value + ')' 
+
+        alias = self.find_alias(info[0])
+        if alias:
+           lines[1] = fields[1] + alias
+        else:
+           lines[1] = None
+        lines.append(self.make_usage_bar(info[3]))
+        
+        if info[5]:
+            lines[4] = fields[4] +  str(info[5])
+        else:
+            lines[4] = fields[4] +  "unknown"
+
+        for j,f in enumerate(self.prefs['fields']):
+            if not f:
+               lines[j] = None
+
+        return lines
 
     def make_menu(self,*args):
         """ generates entries in the indicator"""
@@ -193,24 +248,7 @@ class UdisksIndicator(object):
             for item in self.app_menu.get_children():
                 self.app_menu.remove(item)
         self.app_menu = gtk.Menu()
-        
-        # Determine font first so we know
-        # how to pad the text
-        font = self.gsettings_get(
-                    'org.gnome.desktop.interface',
-                    None,
-                    'font-name'
-        )
-        font = str(font).replace("'","") 
-
-        fields = []
-        if 'Ubuntu' in font and font.split()[1].isdigit():
-            fields = self.get_fields('default')
-        elif 'Mono' in font:
-            fields = self.get_fields('mono')
-        else:
-            fields = self.get_fields('neither')
-
+        self.mounted_devs = {}
 
         drive_icon = 'gnome-dev-harddisk'
         usb_icon = 'media-removable'
@@ -222,56 +260,18 @@ class UdisksIndicator(object):
         if str(icon_theme) == "'ubuntukylin-icon-theme'":
            usb_icon = 'drive-harddisk-usb'
 
-         
+        # TODO: rewrite this into a function 
         # MOUNTED 
-        # list of tuples,(partition,drive,mountpoint,usage)
+        # list of tuples,(partition,drive,mountpoint,pcent use,byte use,fs_type)
         partitions = self.get_partitions()
+        fields = self.get_fields()
         for i in partitions:
-            label_lines = [None]*6
-            label_lines[0] = fields[0] + i[0]
-            label_lines[2] = fields[2] + i[1]
-            label_lines[3] = fields[3] + i[2]
-            label_lines[5] = fields[5] + i[3] + '%'
-            
-            hr_value = self.get_human_readable(int(i[4]))
-            label_lines[5] = label_lines[5] + ' (' + hr_value + ')' 
-
+            label_lines = self.make_label(i)
             icon = drive_icon
-            #icon = 'gnome-dev-harddisk' 
-            #icon = 'block-device'
-            #icon = 'drive-harddisk'
-            #icon = 'drive-harddisk-symbolic.svg'
             if self.get_bus_type(i[1]) == 'usb':
                 icon = usb_icon
-               #icon = 'drive-harddisk-usb'
-               #icons = 'gnome-dev-removable-usb'
-               #icon = 'media-removable'
-               #icon = 'drive-harddisk-usb'
-               #icon = 'drive-removable-media'
-               #icon = 'gnome-dev-removable'
-               #icon = 'media-flash'
-
-            fs_type = str(self.get_filesystem_type(i[0]))
-            if fs_type:
-               if 'iso' in fs_type:
-                   icon = optical_icon
-               label_lines[4] = fields[4] +  fs_type
-            else:
-               label_lines[4] = fields[4] +  "unknown"
-
-            alias = self.find_alias(i[0])
-            if alias:
-                label_lines[1] = fields[1] + alias
-            else:
-                label_lines[1] = None
-
-            usage_bar = self.make_usage_bar(i[3])
-            label_lines.append(usage_bar)
-
-            for j,f in enumerate(self.prefs['fields']):
-                if not f:
-                   label_lines[j] = None
-            
+            if 'iso' in i[5]:
+                icon = optical_icon
 
             label = '\n'.join([l for l in label_lines if l])
 
@@ -356,10 +356,15 @@ class UdisksIndicator(object):
                     'Quit',self.quit,[None]
         ]
         self.add_menu_item(*contents)
+        contents = None
         self.app.set_menu(self.app_menu)
+ 
+        #for child in self.app_menu.get_children():
+         #   print([ l.split() for l in child.get_label().split('\n') ])
+        
 
         #child = self.find_menu_child(self.app_menu,'sda1')
-        #if child: child.set_label('TEST')
+        #if child: child.set_label(str(time.time()))
 
     def find_menu_child(self,menu,label):
         for child in menu.get_children():
@@ -516,6 +521,15 @@ class UdisksIndicator(object):
             print(str(e))
             pass
 
+    def unmount_partition(self,*args):
+        try:
+            cmd = ['udisksctl','unmount','-b','/dev/'+args[-1]]
+            subprocess.check_output(cmd,stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
+            self.send_notif(self.note,'Mounting Error',e.output.decode())
+            print(str(e))
+            pass
+
     def get_filesystem_type(self,dev):
         args = ['system',
                 'org.freedesktop.UDisks2',
@@ -576,7 +590,9 @@ class UdisksIndicator(object):
                        pcent_use,byte_use = self.get_mountpoint_usage(mountpoint)
 
                        part = str(item.split('/')[-1])
-                       partitions.append((part,drive,mountpoint,pcent_use,byte_use))                       
+
+                       fs_type = self.get_filesystem_type(part)
+                       partitions.append((part,drive,mountpoint,pcent_use,byte_use,fs_type))                       
 
             except:
                 pass
