@@ -358,8 +358,8 @@ class UdisksIndicator(object):
         self.add_menu_item(*contents)
         self.app.set_menu(self.app_menu)
 
-        child = self.find_menu_child(self.app_menu,'sda1')
-        if child: child.set_label('TEST')
+        #child = self.find_menu_child(self.app_menu,'sda1')
+        #if child: child.set_label('TEST')
 
     def find_menu_child(self,menu,label):
         for child in menu.get_children():
