@@ -264,6 +264,13 @@ class UdisksIndicator(object):
         # MOUNTED 
         # list of tuples,(partition,drive,mountpoint,pcent use,byte use,fs_type)
         partitions = self.get_partitions()
+
+        add_unmount_button = False
+        mounted_devices_list = [i[0] for i in partitions if i[2] != '/']
+
+        if mounted_devices_list:
+            add_unmount_button = True
+
         fields = self.get_fields()
         for i in partitions:
             label_lines = self.make_label(i)
@@ -284,6 +291,8 @@ class UdisksIndicator(object):
                         None,None,[None]
             ]
             self.add_menu_item(*contents)
+
+
 
         self.unmounted = gtk.MenuItem('Unmounted Partitions')
         self.unmounted_submenu = gtk.Menu()
@@ -341,6 +350,12 @@ class UdisksIndicator(object):
 
         contents = [self.app_menu,gtk.ImageMenuItem,'text-editor',
                     'Make Alias',self.make_alias,[None]
+        ]
+        self.add_menu_item(*contents)
+
+        contents = [self.app_menu,gtk.ImageMenuItem,'media-eject-symbolic',
+                    'Unmount a mounted non-root partition',
+                    self.unmount_partition,mounted_devices_list
         ]
         self.add_menu_item(*contents)
  
@@ -522,8 +537,17 @@ class UdisksIndicator(object):
             pass
 
     def unmount_partition(self,*args):
+        print(args)
+        vals = '|'.join(args[1:])
+        cmd=['zenity','--forms','--title',
+                  'Unmount a partition (excluding / )','--text','',
+                  '--add-combo','Partition','--combo-values',vals
+        ]        
+        choice = self.run_cmd(cmd)
+        if not choice:
+           return
         try:
-            cmd = ['udisksctl','unmount','-b','/dev/'+args[-1]]
+            cmd = ['udisksctl','unmount','-b',os.path.join('/dev/',choice.decode().strip())]
             subprocess.check_output(cmd,stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             self.send_notif(self.note,'Mounting Error',e.output.decode())
