@@ -39,7 +39,7 @@ from gi.repository import Gtk as gtk
 from gi.repository import Gio
 from gi.repository import Notify
 from os import statvfs
-#from collections import OrderedDict
+# from collections import OrderedDict
 import subprocess
 import copy
 import shutil
@@ -48,118 +48,116 @@ import math
 import json
 import os
 
+
 class UdisksIndicator(object):
 
     def __init__(self):
         self.app = appindicator.Indicator.new(
             'udisks-indicator', "drive-harddisk-symbolic.svg",
             appindicator.IndicatorCategory.HARDWARE
-            )
-         
+        )
+
         if self.is_mate():
-           self.app.set_icon("drive-harddisk-symbolic")
+            self.app.set_icon("drive-harddisk-symbolic")
 
         self.app.set_status(appindicator.IndicatorStatus.ACTIVE)
 
+        self.fields = ['Partition', 'Alias', 'Drive',
+                       'MountPoint', 'Filesystem', 'Usage'
+                       ]
 
-        self.fields = ['Partition','Alias','Drive',
-                  'MountPoint','Filesystem','Usage'
-        ]
-        
         self.user_home = os.path.expanduser('~')
         filename = '.udisks-indicator-preferences.json'
-        self.prefs_file = os.path.join(self.user_home,filename)
-        self.prefs = self.read_prefs_file() 
+        self.prefs_file = os.path.join(self.user_home, filename)
+        self.prefs = self.read_prefs_file()
 
         filename = '.partition_aliases.json'
-        self.config_file = os.path.join(self.user_home,filename)
+        self.config_file = os.path.join(self.user_home, filename)
         self.cache = self.get_partitions()
-        
-        self.note = Notify.Notification.new(__file__,None,None)
+
+        self.note = Notify.Notification.new(__file__, None, None)
         Notify.init(__file__)
 
         self.cache_icon_theme = self.gsettings_get(
-             'org.gnome.desktop.interface',None,'icon-theme' 
+            'org.gnome.desktop.interface', None, 'icon-theme'
         )
 
-        self.mounted_devs = {} 
+        self.mounted_devs = {}
 
         self.make_menu()
         self.update()
 
     def is_mate(self):
         """ detect mate session """
-        panel_pid = self.run_cmd(['pgrep','mate-panel'])
+        panel_pid = self.run_cmd(['pgrep', 'mate-panel'])
         if panel_pid:
-           return True
+            return True
 
-    def read_prefs_file(self,*args):
-        default = { 'fields': [True]*5, 'autostart':False }
+    def read_prefs_file(self, *args):
+        default = {'fields': [True] * 5, 'autostart': False}
         if not os.path.exists(self.prefs_file):
-           return default
+            return default
 
         with open(self.prefs_file) as f:
             try:
                 return json.load(f)
             except:
                 return default
- 
-    def write_prefs_file(self,*args):
-        with open(self.prefs_file,'w') as f:
+
+    def write_prefs_file(self, *args):
+        with open(self.prefs_file, 'w') as f:
             try:
-                json.dump(self.prefs,f,
-                          indent=4,sort_keys=True
-                )
+                json.dump(self.prefs, f,
+                          indent=4, sort_keys=True
+                          )
             except Exception as e:
                 self.send_notif(
                     self.note,
-                    'Failed writing '+self.prefs_file,
+                    'Failed writing ' + self.prefs_file,
                     str(e)
                 )
 
     def update(self):
         timeout = 5
-        glib.timeout_add_seconds(timeout,self.callback)
+        glib.timeout_add_seconds(timeout, self.callback)
 
     def callback(self):
         current = self.get_partitions()
         icon_theme = self.gsettings_get(
-                     'org.gnome.desktop.interface',None,'icon-theme' 
+            'org.gnome.desktop.interface', None, 'icon-theme'
         )
         if self.cache != current:
-            #print('cache changed')
+            # print('cache changed')
             if len(self.cache) != len(current):
-               #print('rebuilding menu')
-               self.make_menu()
+                # print('rebuilding menu')
+                self.make_menu()
             else:
-               for i in current:
-                  #print('updating label')
-                  #print(self.make_label(i))
-                  label = '\n'.join([j for j in self.make_label(i) if j])
-                  self.update_label(i[0],label)
-            self.cache = current           
+                for i in current:
+                    # print('updating label')
+                    # print(self.make_label(i))
+                    label = '\n'.join([j for j in self.make_label(i) if j])
+                    self.update_label(i[0], label)
+            self.cache = current
         if self.cache_icon_theme != icon_theme:
             self.cache_icon_theme = icon_theme
             self.make_menu()
-        self.update()        
+        self.update()
 
-    def update_label(self,partition,label):
-        key = [ k for k in self.mounted_devs.keys() if partition in k]
-        #if key:
-           #print('found ',partition)
+    def update_label(self, partition, label):
+        key = [k for k in self.mounted_devs.keys() if partition in k]
         self.mounted_devs[key[0]].set_label(label)
 
-    def add_menu_item(self,menu_obj,item_type,image,label,action,args):
+    def add_menu_item(self, menu_obj, item_type, image, label, action, args):
         """ dynamic function that can add menu items depending on
             the item type and other arguments"""
-        menu_item,icon = None,None
+        menu_item, icon = None, None
         if item_type is gtk.ImageMenuItem and label:
             menu_item = gtk.ImageMenuItem.new_with_label(label)
             menu_item.set_always_show_image(True)
             if '/' in image:
                 icon = gtk.Image.new_from_file(image)
             else:
-                icon = gtk.Image.new_from_icon_name(image,48)
+                icon = gtk.Image.new_from_icon_name(image, 48)
             menu_item.set_image(icon)
         elif item_type is gtk.ImageMenuItem and not label:
             menu_item = gtk.ImageMenuItem()
@@ -167,82 +165,81 @@ class UdisksIndicator(object):
             if '/' in image:
                 icon = gtk.Image.new_from_file(image)
             else:
-                icon = gtk.Image.new_from_icon_name(image,16)
+                icon = gtk.Image.new_from_icon_name(image, 16)
             menu_item.set_image(icon)
         elif item_type is gtk.MenuItem:
             menu_item = gtk.MenuItem(label)
         elif item_type is gtk.SeparatorMenuItem:
             menu_item = gtk.SeparatorMenuItem()
         if action:
-            menu_item.connect('activate',action,*args)
+            menu_item.connect('activate', action, *args)
 
         # small addition for this specific indicator
         if label:
-           if 'Partition' and 'Usage' in label:
-              self.mounted_devs[label] = menu_item
-              
+            if 'Partition' and 'Usage' in label:
+                self.mounted_devs[label] = menu_item
+
         menu_obj.append(menu_item)
         menu_item.show()
 
-    def get_fields(self,*args):
+    def get_fields(self, *args):
         """ Returns info field items necessary for
-            each entry, padded depending on 
+            each entry, padded depending on
             the system font used - default or monospace.
             Other font types are not covered
         """
         font = self.gsettings_get(
-                    'org.gnome.desktop.interface',
-                    None,
-                    'font-name'
+            'org.gnome.desktop.interface',
+            None,
+            'font-name'
         )
-        font = str(font).replace("'","") 
+        font = str(font).replace("'", "")
 
-        
-        fields = [ i + ':' for i in self.fields]
+        fields = [i + ':' for i in self.fields]
         if 'Ubuntu' in font and font.split()[1].isdigit():
             # Thanks to Mateo for figuring out these numbers
-            fields[0] = fields[0] + " "*11
-            fields[1] = fields[1] + " "*20
-            fields[2] = fields[2] + " "*19
-            fields[3] = fields[3] + " "*4
-            fields[4] = fields[4] + " "*8
-            fields[5] = fields[5] + " "*18
+            fields[0] = fields[0] + " " * 11
+            fields[1] = fields[1] + " " * 20
+            fields[2] = fields[2] + " " * 19
+            fields[3] = fields[3] + " " * 4
+            fields[4] = fields[4] + " " * 8
+            fields[5] = fields[5] + " " * 18
 
         elif 'Mono' in font:
-            for index,item in enumerate(fields):
-                fields[index] = self.pad_string(item,20," ")
+            for index, item in enumerate(fields):
+                fields[index] = self.pad_string(item, 20, " ")
         return fields
 
-    def make_label(self,info):
+    def make_label(self, info):
         fields = self.get_fields()
-        lines = [None]*6
+        lines = [None] * 6
         lines[0] = fields[0] + info[0]
         lines[2] = fields[2] + info[1]
         lines[3] = fields[3] + info[2]
         lines[5] = fields[5] + info[3] + '%'
 
         hr_value = self.get_human_readable(int(info[4]))
-        lines[5] = lines[5] + ' (' + hr_value + ')' 
+        lines[5] = lines[5] + ' (' + hr_value + ')'
 
         alias = self.find_alias(info[0])
         if alias:
-           lines[1] = fields[1] + alias
+            lines[1] = fields[1] + alias
         else:
-           lines[1] = None
+            lines[1] = None
         lines.append(self.make_usage_bar(info[3]))
-        
-        if info[5]:
-            lines[4] = fields[4] +  str(info[5])
-        else:
-            lines[4] = fields[4] +  "unknown"
 
-        for j,f in enumerate(self.prefs['fields']):
+        if info[5]:
+            lines[4] = fields[4] + str(info[5])
+        else:
+            lines[4] = fields[4] + "unknown"
+
+        for j, f in enumerate(self.prefs['fields']):
             if not f:
-               lines[j] = None
+                lines[j] = None
 
         return lines
 
-    def make_menu(self,*args):
+    def make_menu(self, *args):
         """ generates entries in the indicator"""
         if hasattr(self, 'app_menu'):
             for item in self.app_menu.get_children():
@@ -255,14 +252,15 @@ class UdisksIndicator(object):
         optical_icon = 'media-optical'
 
         icon_theme = self.gsettings_get(
-                     'org.gnome.desktop.interface',None,'icon-theme' 
+            'org.gnome.desktop.interface', None, 'icon-theme'
         )
         if str(icon_theme) == "'ubuntukylin-icon-theme'":
-           usb_icon = 'drive-harddisk-usb'
+            usb_icon = 'drive-harddisk-usb'
 
-        # TODO: rewrite this into a function 
-        # MOUNTED 
-        # list of tuples,(partition,drive,mountpoint,pcent use,byte use,fs_type)
+        # TODO: rewrite this into a function
+        # MOUNTED
+        # list of tuples,(partition,drive,mountpoint,pcent use,byte
+        # use,fs_type)
         partitions = self.get_partitions()
 
         add_unmount_button = False
@@ -282,17 +280,15 @@ class UdisksIndicator(object):
 
             label = '\n'.join([l for l in label_lines if l])
 
-            contents = [self.app_menu,gtk.ImageMenuItem,icon,
-                        label,self.open_mountpoint,[i[2]]
-            ]
-            self.add_menu_item(*contents)       
-
-            contents = [self.app_menu,gtk.SeparatorMenuItem,None,
-                        None,None,[None]
-            ]
+            contents = [self.app_menu, gtk.ImageMenuItem, icon,
+                        label, self.open_mountpoint, [i[2]]
+                        ]
             self.add_menu_item(*contents)
 
-
+            contents = [self.app_menu, gtk.SeparatorMenuItem, None,
+                        None, None, [None]
+                        ]
+            self.add_menu_item(*contents)
 
         self.unmounted = gtk.MenuItem('Unmounted Partitions')
         self.unmounted_submenu = gtk.Menu()
@@ -308,102 +304,93 @@ class UdisksIndicator(object):
 
             icon = drive_icon
             if fs_type:
-               filesystem = "\nFilesystem: " + fs_type
-               #icon = 'drive-removable-media'
-               #icon = 'drive-multidisk'
-               #icon = 'drive-harddisk-system'
-               if fs_type == 'swap':
-                  filesystem = filesystem + " NOT MOUNTABLE"
-                  icon = 'dialog-error'
-               if 'iso' in fs_type:
-                  icon = optical_icon
+                filesystem = "\nFilesystem: " + fs_type
+                # icon = 'drive-removable-media'
+                # icon = 'drive-multidisk'
+                # icon = 'drive-harddisk-system'
+                if fs_type == 'swap':
+                    filesystem = filesystem + " NOT MOUNTABLE"
+                    icon = 'dialog-error'
+                if 'iso' in fs_type:
+                    icon = optical_icon
             else:
-               filesystem = "\nFilesystem: unknown"
-            
-            if  self.get_bus_type(i[1]) == 'usb':
+                filesystem = "\nFilesystem: unknown"
+
+            if self.get_bus_type(i[1]) == 'usb':
                 icon = 'drive-removable-media-usb'
 
             label = part + drive + filesystem
 
-            if alias: 
-               alias = "\nAlias: " + alias
-               label = part + alias + drive + filesystem
+            if alias:
+                alias = "\nAlias: " + alias
+                label = part + alias + drive + filesystem
 
             contents = [
-                 self.unmounted_submenu,gtk.ImageMenuItem,icon,
-                 label,self.mount_partition,[i[0]]
+                self.unmounted_submenu, gtk.ImageMenuItem, icon,
+                label, self.mount_partition, [i[0]]
             ]
             self.add_menu_item(*contents)
             contents = [
-                 self.unmounted_submenu,gtk.SeparatorMenuItem,None,
-                 None,None,[None]
+                self.unmounted_submenu, gtk.SeparatorMenuItem, None,
+                None, None, [None]
             ]
             self.add_menu_item(*contents)
 
         self.app_menu.append(self.unmounted)
         self.unmounted.show()
 
-        
         self.separator = gtk.SeparatorMenuItem()
         self.app_menu.append(self.separator)
         self.separator.show()
 
-        contents = [self.app_menu,gtk.ImageMenuItem,'text-editor',
-                    'Make Alias',self.make_alias,[None]
-        ]
+        contents = [self.app_menu, gtk.ImageMenuItem, 'text-editor',
+                    'Make Alias', self.make_alias, [None]
+                    ]
         self.add_menu_item(*contents)
 
-        contents = [self.app_menu,gtk.ImageMenuItem,'media-eject-symbolic',
+        contents = [self.app_menu, gtk.ImageMenuItem, 'media-eject-symbolic',
                     'Unmount a mounted non-root partition',
-                    self.unmount_partition,mounted_devices_list
-        ]
+                    self.unmount_partition, mounted_devices_list
+                    ]
         self.add_menu_item(*contents)
- 
-        contents = [self.app_menu,gtk.ImageMenuItem,'gnome-disks',
-                    'Open Disks Utility',self.open_disks_utility,[None]
-        ] 
-        self.add_menu_item(*contents) 
-        contents = [self.app_menu,gtk.ImageMenuItem,'gtk-preferences',
-                    'Preferences',self.preferences_dialog,[None]
-        ]
+
+        contents = [self.app_menu, gtk.ImageMenuItem, 'gnome-disks',
+                    'Open Disks Utility', self.open_disks_utility, [None]
+                    ]
         self.add_menu_item(*contents)
-        contents = [self.app_menu,gtk.ImageMenuItem,'exit',
-                    'Quit',self.quit,[None]
-        ]
+        contents = [self.app_menu, gtk.ImageMenuItem, 'gtk-preferences',
+                    'Preferences', self.preferences_dialog, [None]
+                    ]
+        self.add_menu_item(*contents)
+        contents = [self.app_menu, gtk.ImageMenuItem, 'exit',
+                    'Quit', self.quit, [None]
+                    ]
         self.add_menu_item(*contents)
         contents = None
         self.app.set_menu(self.app_menu)
- 
-        #for child in self.app_menu.get_children():
-         #   print([ l.split() for l in child.get_label().split('\n') ])
-        
 
-        #child = self.find_menu_child(self.app_menu,'sda1')
-        #if child: child.set_label(str(time.time()))
-
-    def find_menu_child(self,menu,label):
+    def find_menu_child(self, menu, label):
         for child in menu.get_children():
             if label in child.get_label():
                 return child
-                    
 
-    def preferences_dialog(self,*args):
+    def preferences_dialog(self, *args):
 
         def _toggle_field(*args):
             pref_vals = args[-1]
             pref_vals[args[-2]] = args[0].get_state()
-            #self.make_menu()
+            # self.make_menu()
 
         def _ok_action(*args):
             self.prefs['fields'] = copy.deepcopy(args[-2])
             self.prefs['autostart'] = args[-1][0]
             self.process_autostart_file()
             self.write_prefs_file()
-            glib.timeout_add_seconds(1,self.make_menu)
+            glib.timeout_add_seconds(1, self.make_menu)
             window.hide()
 
         def _set_defaults(*args):
-            self.prefs['fields'] = [True]*5
+            self.prefs['fields'] = [True] * 5
             self.prefs['autostart'] = False
             os.unlink(self.prefs_file)
             window.hide()
@@ -415,7 +402,6 @@ class UdisksIndicator(object):
         def _cancel_action(*args):
             window.hide()
 
-       
         prefs = copy.deepcopy(self.prefs['fields'])
         autostart = [copy.deepcopy(self.prefs['autostart'])]
         window = gtk.Window()
@@ -423,292 +409,297 @@ class UdisksIndicator(object):
         vert = gtk.Orientation.VERTICAL
         horz = gtk.Orientation.HORIZONTAL
 
-        main_box = gtk.Box(orientation=vert,spacing=20)
+        main_box = gtk.Box(orientation=vert, spacing=20)
         listbox = gtk.ListBox()
         listbox.set_selection_mode(gtk.SelectionMode.NONE)
-        main_box.pack_start(listbox,True,True,0)
+        main_box.pack_start(listbox, True, True, 0)
         window.add(main_box)
 
         row = gtk.ListBoxRow()
         listbox.add(row)
-        label = gtk.Label('',xalign=0)
+        label = gtk.Label('', xalign=0)
         label.set_markup("<b>INFO FIELDS</b>")
         row.add(label)
 
-        for i,f in enumerate(self.fields): 
+        for i, f in enumerate(self.fields):
             if i == 0 or i == 5:
                 continue
             row = gtk.ListBoxRow()
             listbox.add(row)
             aux_box1 = gtk.Box(orientation=horz, spacing=20)
-            aux_box2 = gtk.Box(orientation=vert,spacing=20)
-            aux_box1.pack_start(aux_box2,True,True,0)
-           
+            aux_box2 = gtk.Box(orientation=vert, spacing=20)
+            aux_box1.pack_start(aux_box2, True, True, 0)
+
             switch = gtk.Switch()
-            label = gtk.Label(f,xalign=0)
+            label = gtk.Label(f, xalign=0)
 
             switch.props.valign = gtk.Align.CENTER
             if self.prefs['fields'][i]:
                 switch.set_state(True)
-            switch.connect('notify::active',_toggle_field,i,prefs)
-    
-            aux_box1.pack_start(switch,False,True,0)
-            aux_box2.pack_start(label,True,True,0)
+            switch.connect('notify::active', _toggle_field, i, prefs)
+
+            aux_box1.pack_start(switch, False, True, 0)
+            aux_box2.pack_start(label, True, True, 0)
             row.add(aux_box1)
 
         row = gtk.ListBoxRow()
         listbox.add(row)
-        label = gtk.Label('',xalign=0)
+        label = gtk.Label('', xalign=0)
         label.set_markup("<b>OTHER OPTIONS</b>")
         row.add(label)
 
- 
         row = gtk.ListBoxRow()
         listbox.add(row)
-        aux_box = gtk.Box(orientation=horz,spacing=20)
+        aux_box = gtk.Box(orientation=horz, spacing=20)
         switch = gtk.Switch()
         if self.prefs['autostart']:
-           switch.set_state(True)
-        switch.connect('notify::active',_toggle_autostart,autostart)
-        label = gtk.Label('Autostart',xalign=0)
-        aux_box.pack_start(switch,False,True,0)
-        aux_box.pack_start(label,True,True,0)
+            switch.set_state(True)
+        switch.connect('notify::active', _toggle_autostart, autostart)
+        label = gtk.Label('Autostart', xalign=0)
+        aux_box.pack_start(switch, False, True, 0)
+        aux_box.pack_start(label, True, True, 0)
         row.add(aux_box)
 
         row = gtk.ListBoxRow()
         listbox.add(row)
-        aux_box = gtk.Box(orientation=horz,spacing=20)
-        for i in ['Set Defaults','Cancel','OK']:
+        aux_box = gtk.Box(orientation=horz, spacing=20)
+        for i in ['Set Defaults', 'Cancel', 'OK']:
             button = gtk.Button.new_with_label(i)
             if i == 'OK':
-               button.connect('clicked',_ok_action,prefs,autostart)
+                button.connect('clicked', _ok_action, prefs, autostart)
             if i == 'Cancel':
-               button.connect('clicked',_cancel_action,autostart)
+                button.connect('clicked', _cancel_action, autostart)
             if i == 'Set Defaults':
-               button.connect('clicked',_set_defaults)
-            aux_box.pack_start(button,False,True,0)
+                button.connect('clicked', _set_defaults)
+            aux_box.pack_start(button, False, True, 0)
         row.add(aux_box)
 
-        window.connect("delete-event",_cancel_action)
+        window.connect("delete-event", _cancel_action)
         listbox.show_all()
         window.show_all()
 
-
-    def make_usage_bar(self,usage):
-        """ creates usage bar out of unicode characters""" 
-        fill = float(usage) 
-        fill = int(fill/10)
+    def make_usage_bar(self, usage):
+        """ creates usage bar out of unicode characters"""
+        fill = float(usage)
+        fill = int(fill / 10)
         # \u25A7 and \u25A1; maybe 2588
-        #return u'\u2593'*fill + u'\u2591'*(10-fill)
-        return u'\u2588'*fill + u'\u2592'*(10-fill)
+        # return u'\u2593'*fill + u'\u2591'*(10-fill)
+        return u'\u2588' * fill + u'\u2592' * (10 - fill)
 
-    def get_human_readable(self,size):
-         """ converts size in bytes to 
-         human readable value in powers of 1024.
-         Essentially, same as what df -h gives, or
-         """
-         prefix = ['B','KiB','MiB','GiB',
-                   'TiB','PiB','EiB',
-                   'ZiB','YiB'
-         ]
-         counter = 0
-         while size/1024 > 0.9:
-               counter = counter + 1
-               size = size/1024
-    
-         return str(round(size,2)) +"  "+prefix[counter]
+    def get_human_readable(self, size):
+        """ converts size in bytes to
+        human readable value in powers of 1024.
+        Essentially, same as what df -h gives, or
+        """
+        prefix = ['B', 'KiB', 'MiB', 'GiB',
+                  'TiB', 'PiB', 'EiB',
+                  'ZiB', 'YiB'
+                  ]
+        counter = 0
+        while size / 1024 > 0.9:
+            counter = counter + 1
+            size = size / 1024
 
-    def pad_string(self,orig,length,pad):
-        """ Pads characters to string to make it 
+        return str(round(size, 2)) + "  " + prefix[counter]
+
+    def pad_string(self, orig, length, pad):
+        """ Pads characters to string to make it
             have specific length and returns it"""
-        return orig + pad*(length - len(orig))
+        return orig + pad * (length - len(orig))
 
-    def send_notif(self,note_obj,title,text):
-        note_obj.update(title,text)
+    def send_notif(self, note_obj, title, text):
+        note_obj.update(title, text)
         note_obj.show()
 
-    def mount_partition(self,*args):
+    def mount_partition(self, *args):
         try:
-            cmd = ['udisksctl','mount','-b','/dev/'+args[-1]]
-            subprocess.check_output(cmd,stderr=subprocess.STDOUT)
+            cmd = ['udisksctl', 'mount', '-b', '/dev/' + args[-1]]
+            subprocess.check_output(cmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            self.send_notif(self.note,'Mounting Error',e.output.decode())
+            self.send_notif(self.note, 'Mounting Error', e.output.decode())
             print(str(e))
             pass
 
-    def unmount_partition(self,*args):
+    def unmount_partition(self, *args):
         print(args)
         vals = '|'.join(args[1:])
-        cmd=['zenity','--forms','--title',
-                  'Unmount a partition (excluding / )','--text','',
-                  '--add-combo','Partition','--combo-values',vals
-        ]        
+        cmd = ['zenity', '--forms', '--title',
+               'Unmount a partition (excluding / )', '--text', '',
+               '--add-combo', 'Partition', '--combo-values', vals
+               ]
         choice = self.run_cmd(cmd)
         if not choice:
-           return
+            return
         try:
-            cmd = ['udisksctl','unmount','-b',os.path.join('/dev/',choice.decode().strip())]
-            subprocess.check_output(cmd,stderr=subprocess.STDOUT)
+            cmd = ['udisksctl', 'unmount', '-b',
+                   os.path.join('/dev/', choice.decode().strip())]
+            subprocess.check_output(cmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            self.send_notif(self.note,'Mounting Error',e.output.decode())
+            self.send_notif(self.note, 'Mounting Error', e.output.decode())
             print(str(e))
             pass
 
-    def get_filesystem_type(self,dev):
+    def get_filesystem_type(self, dev):
         args = ['system',
                 'org.freedesktop.UDisks2',
                 '/org/freedesktop/UDisks2/block_devices/' + dev,
                 'org.freedesktop.UDisks2.Block',
                 'IdType'
-        ]
+                ]
         try:
             return str(self.get_dbus_property(*args))
         except Exception as e:
             print(str(e))
             return None
 
-    def get_bus_type(self,drive):
+    def get_bus_type(self, drive):
         """ Determines bus type of the bus via
         which a drive is connected """
         return self.get_dbus_property(
-                   'system','org.freedesktop.UDisks2',
-                   '/org/freedesktop/UDisks2/drives/' + drive,
-                   'org.freedesktop.UDisks2.Drive','ConnectionBus'
+            'system', 'org.freedesktop.UDisks2',
+            '/org/freedesktop/UDisks2/drives/' + drive,
+            'org.freedesktop.UDisks2.Drive', 'ConnectionBus'
         )
-            
-    def get_mountpoint_usage(self,mountpoint):
+
+    def get_mountpoint_usage(self, mountpoint):
         """ performs statvfs syscall and calculates usage
         from the amount of filesystem blocks used. Returns
         tuple of percentage and actual byte size used"""
         fs = statvfs(mountpoint)
         used_blocks = float(fs.f_blocks) - float(fs.f_bfree)
         used_bytes = int(fs.f_bsize * used_blocks)
-        pcent_use = 100 * (used_blocks/float(fs.f_blocks))
+        pcent_use = 100 * (used_blocks / float(fs.f_blocks))
         return (str("{0:.2f}".format(pcent_use)),
-                str(used_bytes) 
-        )
+                str(used_bytes)
+                )
 
     def get_partitions(self):
-        contents = [ 
-            'system','org.freedesktop.UDisks2','/org/freedesktop/UDisks2', 
-            'org.freedesktop.DBus.ObjectManager','GetManagedObjects',None
+        contents = [
+            'system', 'org.freedesktop.UDisks2', '/org/freedesktop/UDisks2',
+            'org.freedesktop.DBus.ObjectManager', 'GetManagedObjects', None
         ]
         objects = self.get_dbus(*contents)
-        
+
         partitions = []
         for item in objects:
             try:
-                if 'block_devices'  in str(item):
-                       contents = [
-                           'system','org.freedesktop.UDisks2',item,
-		           'org.freedesktop.UDisks2.Block','Drive'
-                       ]
-                       drive = self.get_dbus_property(*contents)
-                       if drive == '/': continue
-                      
-                       mountpoint = self.get_mountpoint(item)
-                       if not mountpoint: continue
-                       mountpoint = mountpoint.replace('\x00','')
-    
-                       drive = str(drive).split('/')[-1]
-                       pcent_use,byte_use = self.get_mountpoint_usage(mountpoint)
+                if 'block_devices' in str(item):
+                    contents = [
+                        'system', 'org.freedesktop.UDisks2', item,
+                        'org.freedesktop.UDisks2.Block', 'Drive'
+                    ]
+                    drive = self.get_dbus_property(*contents)
+                    if drive == '/':
+                        continue
 
-                       part = str(item.split('/')[-1])
+                    mountpoint = self.get_mountpoint(item)
+                    if not mountpoint:
+                        continue
+                    mountpoint = mountpoint.replace('\x00', '')
 
-                       fs_type = self.get_filesystem_type(part)
-                       partitions.append((part,drive,mountpoint,pcent_use,byte_use,fs_type))                       
+                    drive = str(drive).split('/')[-1]
+                    pcent_use, byte_use = self.get_mountpoint_usage(mountpoint)
 
+                    part = str(item.split('/')[-1])
+
+                    fs_type = self.get_filesystem_type(part)
+                    info = (part, drive, mountpoint,
+                            pcent_use, byte_use, fs_type)
+                    partitions.append(info)
             except:
                 pass
         partitions.sort()
         return partitions
 
-    def get_mountpoint(self,dev_path):
+    def get_mountpoint(self, dev_path):
         try:
             contents = [
-                'system','org.freedesktop.UDisks2',dev_path,
-                'org.freedesktop.UDisks2.Filesystem','MountPoints'
+                'system', 'org.freedesktop.UDisks2', dev_path,
+                'org.freedesktop.UDisks2.Filesystem', 'MountPoints'
             ]
             data = self.get_dbus_property(*contents)[0]
-    
+
         except:
             return None
         else:
             if len(data) > 0:
-                return ''.join([ chr(byte) for byte in data])
-
+                return ''.join([chr(byte) for byte in data])
 
     def get_unmounted_partitions(self):
         contents = [
-            'system','org.freedesktop.UDisks2', 
-            '/org/freedesktop/UDisks2','org.freedesktop.DBus.ObjectManager',
-            'GetManagedObjects',None
+            'system', 'org.freedesktop.UDisks2',
+            '/org/freedesktop/UDisks2', 'org.freedesktop.DBus.ObjectManager',
+            'GetManagedObjects', None
         ]
         objects = self.get_dbus(*contents)
-        
+
         partitions = []
         for item in objects:
             try:
-                if 'block_devices'  in str(item):
-                       drive = self.get_dbus_property('system',
-                                        'org.freedesktop.UDisks2',
-                                        item,
-                                        'org.freedesktop.UDisks2.Block',
-                                        'Drive')
-                       if drive == '/': continue
-                      
-                       mountpoint = self.get_mountpoint(item)
-                       if  mountpoint: continue
+                if 'block_devices' in str(item):
+                    dbus_args = ['system', 'org.freedesktop.UDisks2',
+                                 item, 'org.freedesktop.UDisks2.Block',
+                                 'Drive'
+                    ]
+                    drive = self.get_dbus_property(*dbus_args)
+                    if drive == '/':
+                        continue
 
-                       drive = str(drive).split('/')[-1]
-                       part = str(item.split('/')[-1])
-                       if not part[-1].isdigit(): continue
-                       partitions.append((part,drive))                       
-                       #print(partitions)
+                    mountpoint = self.get_mountpoint(item)
+                    if mountpoint:
+                        continue
+
+                    drive = str(drive).split('/')[-1]
+                    part = str(item.split('/')[-1])
+                    if not part[-1].isdigit():
+                        continue
+                    partitions.append((part, drive))
+                    # print(partitions)
 
             except Exception as e:
-                #print(e)
+                # print(e)
                 pass
 
         partitions.sort()
         return partitions
 
-    def get_dbus(self,bus_type,obj,path,interface,method,arg):
+    def get_dbus(self, bus_type, obj, path, interface, method, arg):
         """ utility: executes dbus method on specific interface"""
         if bus_type == "session":
-            bus = dbus.SessionBus() 
+            bus = dbus.SessionBus()
         if bus_type == "system":
             bus = dbus.SystemBus()
-        proxy = bus.get_object(obj,path)
-        method = proxy.get_dbus_method(method,interface)
+        proxy = bus.get_object(obj, path)
+        method = proxy.get_dbus_method(method, interface)
         if arg:
             return method(arg)
         else:
             return method()
-    
-    def get_dbus_property(self,bus_type,obj,path,iface,prop):
+
+    def get_dbus_property(self, bus_type, obj, path, iface, prop):
         """ utility:reads properties defined on specific dbus interface"""
         if bus_type == "session":
-           bus = dbus.SessionBus()
+            bus = dbus.SessionBus()
         if bus_type == "system":
-           bus = dbus.SystemBus()
-        proxy = bus.get_object(obj,path)
+            bus = dbus.SystemBus()
+        proxy = bus.get_object(obj, path)
         aux = 'org.freedesktop.DBus.Properties'
-        props_iface = dbus.Interface(proxy,aux)
-        props = props_iface.Get(iface,prop)
+        props_iface = dbus.Interface(proxy, aux)
+        props = props_iface.Get(iface, prop)
         return props
 
-    def make_alias(self,*args):
+    def make_alias(self, *args):
         """ writes to config file user-defined alias"""
-        partitions = [ i[0] for i in self.get_partitions() ]
+        partitions = [i[0] for i in self.get_partitions()]
 
         combo_values = '|'.join(partitions)
-        command=[ 'zenity','--forms','--title',
-                  'Make Alias','--text','',
-                  '--add-combo','Partition','--combo-values',
-                  combo_values,'--add-entry','Alias'    ]        
+        command = ['zenity', '--forms', '--title',
+                   'Make Alias', '--text', '',
+                   '--add-combo', 'Partition', '--combo-values',
+                   combo_values, '--add-entry', 'Alias']
         user_input = self.run_cmd(command)
-        if not user_input: return
+        if not user_input:
+            return
 
         alias = user_input.decode().strip().split('|')
 
@@ -719,17 +710,15 @@ class UdisksIndicator(object):
                     existing_values = json.load(conf_file)
                 except ValueError:
                     pass
-                    
 
-        with open(self.config_file,'w') as conf_file:
-             if existing_values:
-                 existing_values[alias[0]] = alias[1]
-             else:
-                 existing_values = {alias[0]:alias[1]}
-             json.dump(existing_values,conf_file,indent=4,sort_keys=True)
-        
+        with open(self.config_file, 'w') as conf_file:
+            if existing_values:
+                existing_values[alias[0]] = alias[1]
+            else:
+                existing_values = {alias[0]: alias[1]}
+            json.dump(existing_values, conf_file, indent=4, sort_keys=True)
 
-    def find_alias(self,part):
+    def find_alias(self, part):
         """ searches the config file for partition alias"""
         if os.path.isfile(self.config_file):
             with open(self.config_file) as conf_file:
@@ -739,29 +728,28 @@ class UdisksIndicator(object):
                     pass
                 else:
                     if part in aliases:
-                       return aliases[part]
+                        return aliases[part]
                     else:
-                       return None
+                        return None
 
-    def process_autostart_file(self,*args):
+    def process_autostart_file(self, *args):
         desktop_file = '.config/autostart/udisks-indicator.desktop'
         full_path = os.path.join(
-                    self.user_home,
-                    desktop_file
+            self.user_home,
+            desktop_file
         )
 
         if self.prefs['autostart'] and not os.path.exists(full_path):
-           original = '/usr/share/applications/udisks-indicator.desktop'
-           if os.path.exists(original):
-               shutil.copyfile(original,full_path)
+            original = '/usr/share/applications/udisks-indicator.desktop'
+            if os.path.exists(original):
+                shutil.copyfile(original, full_path)
         elif not self.prefs['autostart'] and os.path.exists(full_path):
-           os.unlink(full_path)
+            os.unlink(full_path)
 
+    def open_mountpoint(self, *args):
+        pid = subprocess.Popen(['xdg-open', args[-1]]).pid
 
-    def open_mountpoint(self,*args):
-        pid = subprocess.Popen(['xdg-open',args[-1]]).pid
-
-    def open_disks_utility(self,*args):
+    def open_disks_utility(self, *args):
         pid = subprocess.Popen(['gnome-disks']).pid
 
     def gsettings_get(self, schema, path, key):
@@ -794,6 +782,7 @@ class UdisksIndicator(object):
     def quit(self, *args):
         """ closes indicator """
         gtk.main_quit()
+
 
 def main():
     """ defines program entry point """
