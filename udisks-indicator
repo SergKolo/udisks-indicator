@@ -552,6 +552,15 @@ class UdisksIndicator(object):
             print(str(e))
             return None
 
+    def get_uuid(self,*args):
+        """ Obtains UUID of a partition"""
+        # Fixes https://github.com/SergKolo/udisks-indicator/issues/6
+        dbus_call = ['system', 'org.freedesktop.UDisks2',
+                    '/org/freedesktop/UDisks2/block_devices/' + args[-1],
+                    'org.freedesktop.UDisks2.Block', 'IdUUID'
+                   ]
+        return self.get_dbus_property(*dbus_call)
+
     def get_bus_type(self, drive):
         """ Determines bus type of the bus via
         which a drive is connected """
@@ -700,7 +709,6 @@ class UdisksIndicator(object):
         user_input = self.run_cmd(command)
         if not user_input:
             return
-
         alias = user_input.decode().strip().split('|')
 
         existing_values = None
@@ -712,14 +720,16 @@ class UdisksIndicator(object):
                     pass
 
         with open(self.config_file, 'w') as conf_file:
+            uuid = self.get_uuid(alias[0])
             if existing_values:
-                existing_values[alias[0]] = alias[1]
+                existing_values[uuid] = alias[1]
             else:
-                existing_values = {alias[0]: alias[1]}
+                existing_values = {uuid: alias[1]}
             json.dump(existing_values, conf_file, indent=4, sort_keys=True)
 
     def find_alias(self, part):
         """ searches the config file for partition alias"""
+        uuid = self.get_uuid(part)
         if os.path.isfile(self.config_file):
             with open(self.config_file) as conf_file:
                 try:
@@ -727,8 +737,8 @@ class UdisksIndicator(object):
                 except ValueError:
                     pass
                 else:
-                    if part in aliases:
-                        return aliases[part]
+                    if uuid in aliases:
+                        return aliases[uuid]
                     else:
                         return None
 
