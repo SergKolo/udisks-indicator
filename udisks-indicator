@@ -118,7 +118,7 @@ class UdisksIndicator(object):
                 )
 
     def update(self):
-        timeout = 5
+        timeout = 15
         glib.timeout_add_seconds(timeout, self.callback)
 
     def callback(self):
@@ -582,6 +582,44 @@ class UdisksIndicator(object):
                 str(used_bytes)
                 )
 
+    def get_network_entries(self):
+        result = []
+        lines = []
+        proc = subprocess.Popen('df', stdout=subprocess.PIPE)
+
+        for line in proc.stdout.readlines():
+            lines.append(line.strip().split())
+
+        for entry in lines:
+            if "//" in str(entry[0]):
+                result.append([x.decode('utf-8') for x in entry])
+        return result
+
+    def get_network_drive_type(self, network_drive_name):
+        lines = []
+        proc = subprocess.Popen('mount', stdout=subprocess.PIPE)
+
+        for line in proc.stdout.readlines():
+            lines.append(line.strip().split())
+
+        for entry in lines:
+            if network_drive_name in str(entry[0]):
+                return ([x.decode('utf-8') for x in entry])[4]
+
+    def append_network_shares(self, partitions):
+        network_entries = self.get_network_entries()
+
+        for network_entry in network_entries:
+            new_element=[network_entry[0], "Network", network_entry[5], '?', '?', '-']
+            percentage_free = network_entry[4][0:2]
+            total_size = network_entry[1]
+
+            new_element[3] = str(percentage_free)
+            new_element[4] = str(total_size)
+            new_element[5] = self.get_network_drive_type(network_entry[0])
+            partitions.append(tuple(new_element))
+        return partitions
+
     def get_partitions(self):
         contents = [
             'system', 'org.freedesktop.UDisks2', '/org/freedesktop/UDisks2',
@@ -617,6 +655,7 @@ class UdisksIndicator(object):
                     partitions.append(info)
             except:
                 pass
+        partitions = self.append_network_shares(partitions)
         partitions.sort()
         return partitions
 
@@ -691,11 +730,16 @@ class UdisksIndicator(object):
             bus = dbus.SessionBus()
         if bus_type == "system":
             bus = dbus.SystemBus()
-        proxy = bus.get_object(obj, path)
-        aux = 'org.freedesktop.DBus.Properties'
-        props_iface = dbus.Interface(proxy, aux)
-        props = props_iface.Get(iface, prop)
-        return props
+        try:
+            proxy = bus.get_object(obj, path)
+            aux = 'org.freedesktop.DBus.Properties'
+            props_iface = dbus.Interface(proxy, aux)
+            props = props_iface.Get(iface, prop)
+            return props
+        except Exception as e:
+            pass
+        return ""
+
 
     def make_alias(self, *args):
         """ writes to config file user-defined alias"""
