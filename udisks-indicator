@@ -585,7 +585,7 @@ class UdisksIndicator(object):
     def get_network_entries(self):
         result = []
         lines = []
-        proc = subprocess.Popen('df', stdout=subprocess.PIPE)
+        proc = subprocess.Popen(["df", "--block-size=1"], stdout=subprocess.PIPE)
 
         for line in proc.stdout.readlines():
             lines.append(line.strip().split())
