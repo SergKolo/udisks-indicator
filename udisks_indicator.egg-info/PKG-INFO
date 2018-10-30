@@ -1,0 +1,17 @@
+Metadata-Version: 1.1
+Name: udisks-indicator
+Version: 2.1
+Summary: Indicator for viewing information about mounted filesystems via mostly DBus and UDisks
+Home-page: https://github.com/SergKolo/udisks-indicator
+Author: Sergiy Kolodyazhnyy
+Author-email: 1047481448@qq.com
+License: MIT
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Environment :: X11 Applications :: GTK
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3.0
+Classifier: Topic :: Utilities

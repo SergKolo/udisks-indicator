@@ -1,3 +1,8 @@
+udisks-indicator (2.1-1) unstable; urgency=low
+
+  * source package automatically created by stdeb 0.8.5
+
+ -- Sergiy Kolodyazhnyy <1047481448@qq.com>  Tue, 30 Oct 2018 13:08:08 +0800
 udisks-indicator (0.1-1) unstable; urgency=low
 
   * Initial release

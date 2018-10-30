@@ -1,0 +1,10 @@
+README.md
+setup.py
+udisks_indicator/__init__.py
+udisks_indicator/udisks_indicator.desktop
+udisks_indicator/udisks_indicator.py
+udisks_indicator.egg-info/PKG-INFO
+udisks_indicator.egg-info/SOURCES.txt
+udisks_indicator.egg-info/dependency_links.txt
+udisks_indicator.egg-info/requires.txt
+udisks_indicator.egg-info/top_level.txt
